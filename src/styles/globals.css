@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background-color: #111111;
+}
+
+.group:hover svg {
+  color: var(--hover-color) !important;
+}
