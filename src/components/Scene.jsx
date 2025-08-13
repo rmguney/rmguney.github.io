@@ -196,9 +196,17 @@ function Scene3D({ setModelLoaded }) {
       const rapier = rapierRef.current
       
       if (rapier) {
+        const canvas = camera.userData?.canvas || document.querySelector('canvas')
+        if (!canvas) return
+        
+        const rect = canvas.getBoundingClientRect()
+        
+        const x = clientX - rect.left
+        const y = clientY - rect.top
+        
         const mouse = new THREE.Vector2(
-          (clientX / window.innerWidth) * 2 - 1,
-          -(clientY / window.innerHeight) * 2 + 1
+          (x / rect.width) * 2 - 1,
+          -(y / rect.height) * 2 + 1
         )
         
         const raycaster = new THREE.Raycaster()

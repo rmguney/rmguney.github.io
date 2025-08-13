@@ -313,7 +313,10 @@ export default function GameBoy() {
             codeBytes: 0,
             importanceFactor: 0,
             isGithubPage: !repo.homepage || repo.homepage === "",
-            isPinned: pinnedRepos.has(repo.name)
+            isPinned: pinnedRepos.has(repo.name),
+            isPortfolio: repo.name === 'rmguney.github.io' || repo.name.includes('rguney') || 
+                (repo.homepage && (window.location.href.includes(repo.homepage) || 
+                 repo.homepage.includes(window.location.hostname)))
           }));
         await Promise.all(processedRepos.map(async (repo) => {
           try {
@@ -404,7 +407,7 @@ export default function GameBoy() {
 
   useEffect(() => {
     const fetchReadme = async () => {
-      if (activeIndex === null || !displayedRepos[activeIndex]?.isGithubPage) {
+      if (activeIndex === null || (!displayedRepos[activeIndex]?.isGithubPage && !displayedRepos[activeIndex]?.isPortfolio)) {
         setReadmeContent('');
         return;
       }
@@ -715,18 +718,30 @@ export default function GameBoy() {
     return colors[language] || '#8b949e';
   };
 
-  const renderBadges = (languages, hasWebsite) => {
+  const renderBadges = (languages, hasWebsite, isPortfolio) => {
     const websiteBadge = hasWebsite ? (
       <div className="w-full flex justify-center mb-0.5">
         <div 
           key="website"
           className="text-[10px] px-0.5 py-0 inline-flex items-center justify-center text-white/90"
         >
-          <span 
-            className="inline-flex items-center justify-center mr-[2px] mb-0 lg:mb-0.5"
-            style={{ color: '#10b981', fontSize: '9px', lineHeight: 1 }}
-          >★</span>
-          <span className="text-white/50">Deployment Live</span>
+          {isPortfolio ? (
+            <>
+              <span 
+                className="inline-flex items-center justify-center mr-[2px] mb-0 lg:mb-0.5"
+                style={{ color: '#f59e0b', fontSize: '9px', lineHeight: 1 }}
+              >★</span>
+              <span className="text-white/50">You are here!</span>
+            </>
+          ) : (
+            <>
+              <span 
+                className="inline-flex items-center justify-center mr-[2px] mb-0 lg:mb-0.5"
+                style={{ color: '#10b981', fontSize: '9px', lineHeight: 1 }}
+              >★</span>
+              <span className="text-white/50">Deployment Live</span>
+            </>
+          )}
         </div>
       </div>
     ) : null;
@@ -948,6 +963,45 @@ export default function GameBoy() {
         scrollbar-width: thin;
         scrollbar-color: #444 #2a2a2a;
       }
+      
+      .gameboy-tooltip {
+        position: absolute;
+        background: transparent;
+        color: rgba(69, 69, 69, 1);
+        padding: 4px 6px;
+        border-radius: 6px;
+        font-size: 10px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        font-weight: 600;
+        text-shadow: 0 0 1px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.2);
+        z-index: 100;
+        transition: opacity 0.2s ease-in-out;
+      }
+      
+      .gameboy-button:hover .gameboy-tooltip {
+        opacity: 1;
+      }
+      
+      .action-button-tooltip {
+        left: 50%;
+        bottom: 105%;
+        transform: translateX(-50%);
+        text-align: center;
+      }
+      
+      .gameboy-button.disabled {
+        cursor: not-allowed;
+      }
+      
+      .gameboy-button.disabled .gameboy-tooltip {
+        opacity: 0 !important;
+      }
+      
+      .gameboy-button:has(.opacity-50) .gameboy-tooltip {
+        max-opacity: 0.5;
+      }
     `;
     document.head.appendChild(style);
     
@@ -1003,14 +1057,14 @@ export default function GameBoy() {
                   mass: 0.8,
                 }
               }}
-              className="absolute lg:-top-28 hidden lg:block text-[50px] lg:text-[120px] font-black whitespace-nowrap"
+              className="absolute lg:-top-24 hidden lg:block text-[50px] lg:text-[125px] font-black whitespace-nowrap"
               style={{ 
                 background: 'linear-gradient(to bottom, rgba(255,255,255,0.4), rgba(255,255,255,0.2))',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 textShadow: '0 0 40px rgba(255,255,255,0.1)'
               }}>
-              {allRepos.length} OPEN
+              {allRepos.length} PUBLIC
             </motion.span>
             <motion.h1 
               key={`titlebar-h1-${entranceKey}`}
@@ -1036,7 +1090,7 @@ export default function GameBoy() {
               }}
               className="pt-6 lg:pt-0 relative text-4xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white/80 via-amber-50/90 to-white/80 lg:tracking-[0.2em] text-center lg:text-left"
               style={{ textShadow: '0 0 20px rgba(255,255,255,0.2)' }}>
-              PROJECTS
+              REPOSITORIES
             </motion.h1>
             
             {!loading && !error && (
@@ -1200,7 +1254,7 @@ export default function GameBoy() {
                         </p>
                         
                         <div className={`mt-1 ${isSmallScreen ? 'w-[120px]' : 'w-[145px]'}`}>
-                          {renderBadges(repo.languages, !repo.isGithubPage)}
+                          {renderBadges(repo.languages, !repo.isGithubPage, repo.isPortfolio)}
                         </div>
                       </div>
                     </div>
@@ -1278,13 +1332,14 @@ export default function GameBoy() {
               <div className="absolute top-[20px] left-[50%] translate-x-[-50%] w-[360px] h-[310px] bg-[#9ba5aa] border-[6px] border-solid border-[#555] overflow-hidden">
                 <div className="w-full h-full relative overflow-hidden">
                   {cartridgeSelected && currentWebsite && activeIndex !== null ? (
-                    displayedRepos[activeIndex]?.isGithubPage ? (
+                    displayedRepos[activeIndex]?.isGithubPage || displayedRepos[activeIndex]?.isPortfolio ? (
                       <div className="w-full h-full bg-[#212121] flex flex-col overflow-hidden">
                         <div className="bg-black p-2 flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <FaGithub className="text-white" />
                             <span className="text-white font-medium truncate">
                               {formatRepoName(displayedRepos[activeIndex].name)}.md
+                              {displayedRepos[activeIndex]?.isPortfolio && <span className="ml-2 text-amber-300 text-xs">(Current Site)</span>}
                             </span>
                           </div>
                         </div>
@@ -1299,6 +1354,13 @@ export default function GameBoy() {
                             </div>
                           ) : (
                             <div className="markdown-body w-full">
+                              {displayedRepos[activeIndex]?.isPortfolio && !readmeContent && (
+                                <div className="p-4 text-center">
+                                  <h1 className="text-xl font-bold text-amber-300 mb-4">Portfolio Website Repository</h1>
+                                  <p>This is the repository for the website you are currently viewing.</p>
+                                  <p className="mt-4 text-white/60">README content is loading or not available.</p>
+                                </div>
+                              )}
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 components={MarkdownComponents}
@@ -1337,52 +1399,64 @@ export default function GameBoy() {
 
               <button 
                 onClick={() => handleDPadClick('up')} 
-                className={`absolute top-0 left-1/2 -translate-x-1/2 w-[37px] h-[41px] z-10 flex items-center justify-center hover:scale-[0.97] hover:shadow-[inset_0_4px_8px_rgba(0,0,0,0.4)]
-                  ${currentPage >= totalPages ? 'cursor-not-allowed opacity-50' : ''}`}
-                aria-label="Previous page"
+                className={`gameboy-button absolute top-0 left-1/2 -translate-x-1/2 w-[37px] h-[41px] z-10 flex items-center justify-center hover:scale-[0.97] hover:shadow-[inset_0_4px_8px_rgba(0,0,0,0.4)]
+                  ${currentPage >= totalPages ? 'disabled opacity-50' : ''}`}
+                aria-label="Next page"
               >
                 <FaCaretUp className="text-gray-500" />
+                <div className="gameboy-tooltip" style={{ bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%) translateY(5px)' }}>Next Page</div>
               </button>
               <button 
                 onClick={() => handleDPadClick('right')} 
-                className={`absolute top-1/2 right-0 -translate-y-1/2 w-[41px] h-[37px] z-10 flex items-center justify-center shadow-lg hover:scale-[0.97] hover:shadow-[inset_-4px_0_8px_rgba(0,0,0,0.4)]
-                  ${activeIndex === null || activeIndex >= displayedRepos.length - 1 ? 'cursor-not-allowed opacity-50' : ''}`}
+                className={`gameboy-button absolute top-1/2 right-0 -translate-y-1/2 w-[41px] h-[37px] z-10 flex items-center justify-center shadow-lg hover:scale-[0.97] hover:shadow-[inset_-4px_0_8px_rgba(0,0,0,0.4)]
+                  ${activeIndex === null || activeIndex >= displayedRepos.length - 1 ? 'disabled opacity-50' : ''}`}
                 aria-label="Next project"
               >
                 <FaCaretRight className="text-gray-500" />
+                <div className="gameboy-tooltip" style={{ left: 'calc(100% + 6px)', top: '50%', transform: 'translateY(-50%)' }}>Next<br /> Project</div>
               </button>
               <button 
                 onClick={() => handleDPadClick('down')} 
-                className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-[37px] h-[41px] z-10 flex items-center justify-center shadow-lg hover:scale-[0.97] hover:shadow-[inset_0_-4px_8px_rgba(0,0,0,0.4)]
-                  ${currentPage <= 1 ? 'cursor-not-allowed opacity-50' : ''}`}
-                aria-label="Next page"
+                className={`gameboy-button absolute bottom-0 left-1/2 -translate-x-1/2 w-[37px] h-[41px] z-10 flex items-center justify-center shadow-lg hover:scale-[0.97] hover:shadow-[inset_0_-4px_8px_rgba(0,0,0,0.4)]
+                  ${currentPage <= 1 ? 'disabled opacity-50' : ''}`}
+                aria-label="Previous page"
               >
                 <FaCaretDown className="text-gray-500" />
+                <div className="gameboy-tooltip" style={{ top: 'calc(100% )', left: '50%', transform: 'translateX(-50%)' }}>Previous Page</div>
               </button>
               <button 
                 onClick={() => handleDPadClick('left')} 
-                className={`absolute top-1/2 left-0 -translate-y-1/2 w-[41px] h-[37px] z-10 flex items-center justify-center shadow-lg hover:scale-[0.97] hover:shadow-[inset_4px_0_8px_rgba(0,0,0,0.4)]
-                  ${activeIndex === null || activeIndex <= 0 ? 'cursor-not-allowed opacity-50' : ''}`}
+                className={`gameboy-button absolute top-1/2 left-0 -translate-y-1/2 w-[41px] h-[37px] z-10 flex items-center justify-center shadow-lg hover:scale-[0.97] hover:shadow-[inset_4px_0_8px_rgba(0,0,0,0.4)]
+                  ${activeIndex === null || activeIndex <= 0 ? 'disabled opacity-50' : ''}`}
                 aria-label="Previous project"
               >
                 <FaCaretLeft className="text-gray-500" />
+                <div className="gameboy-tooltip" style={{ right: 'calc(100% + 6px)', top: '50%', transform: 'translateY(-50%)' }}>Previous<br/> Project</div>
               </button>
             </div>
 
             <div className="absolute top-[420px] right-[60px] w-[120px] h-[120px]">
               <button 
                 onClick={handleAButtonClick} 
-                className="absolute top-[22px] right-[0px] w-[45px] h-[45px] hover:shadow-inner hover:scale-[0.98] shadow-lg bg-[#333] rounded-full transform rotate-[-30deg] cursor-pointer flex items-center justify-center"
-                aria-label="Open website"
+                className={`gameboy-button absolute top-[22px] right-[0px] w-[45px] h-[45px] 
+                  ${activeIndex === null ? 'disabled' : 'hover:shadow-inner hover:scale-[0.98]'}
+                  shadow-lg bg-[#333] rounded-full transform rotate-[-30deg] flex items-center justify-center`}
+                aria-label="Visit Deployment"
               >
-                <HiLink className="text-gray-500 text-xl transform rotate-[30deg]" />
+                <HiLink className={`text-gray-500 text-xl transform rotate-[30deg] 
+                  ${activeIndex === null ? 'opacity-50' : ''}`} />
+                <div className="gameboy-tooltip action-button-tooltip">Visit Deployment</div>
               </button>
               <button 
                 onClick={handleBButtonClick} 
-                className="absolute top-[52px] right-[52px] w-[45px] h-[45px] hover:shadow-inner hover:scale-[0.98] shadow-lg bg-[#333] rounded-full transform rotate-[-30deg] cursor-pointer flex items-center justify-center"
-                aria-label="Open GitHub"
+                className={`gameboy-button absolute top-[52px] right-[52px] w-[45px] h-[45px] 
+                  ${activeIndex === null ? 'disabled' : 'hover:shadow-inner hover:scale-[0.98]'} 
+                  shadow-lg bg-[#333] rounded-full transform rotate-[-30deg] flex items-center justify-center`}
+                aria-label="View Source"
               >
-                <FaGithub className="text-gray-500 text-xl transform rotate-[30deg]" />
+                <FaGithub className={`text-gray-500 text-xl transform rotate-[30deg] 
+                  ${activeIndex === null ? 'opacity-50' : ''}`} />
+                <div className="gameboy-tooltip action-button-tooltip">View Source</div>
               </button>
             </div>
           </div>

@@ -65,13 +65,13 @@ const TextBody = () => {
       sceneColor: "#d4bbfa",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     },
-/*     {
+     {
       img: "/certs/mthde.png",
       name: "Threat Hunting and Detection Engineering",
       description: "Mitre, Aug 2025",
       sceneColor: "#b2c9f7",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    }, */
+    },
 /*     {
       img: "/certs/maem.png",
       name: "Adversary Emulation Methodology",
