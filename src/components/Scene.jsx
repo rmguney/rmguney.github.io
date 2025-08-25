@@ -46,8 +46,30 @@ function Balloon({ position, color, meshToBodyRef, spawning }) {
   const mesh = useRef()
   const rigidBodyRef = useRef()
   const materialRef = useRef()
+  const windOffset = useRef(Math.random() * Math.PI * 2)
+  const balloonMass = useRef(0.1 + Math.random() * 0.05)
 
   useFrame((state, delta) => {
+    if (rigidBodyRef.current) {
+      const buoyancyForce = { x: 0, y: 9.8 * balloonMass.current * 0.15, z: 0 }
+      rigidBodyRef.current.applyImpulse(buoyancyForce, true)
+      
+      const time = state.clock.getElapsedTime()
+      const windForce = {
+        x: Math.sin(time * 0.5 + windOffset.current) * 0.08,
+        y: Math.sin(time * 0.3) * 0.02,
+        z: Math.cos(time * 0.4 + windOffset.current) * 0.08
+      }
+      rigidBodyRef.current.applyImpulse(windForce, true)
+      
+      const torque = {
+        x: Math.sin(time * 0.7) * 0.01,
+        y: Math.cos(time * 0.5) * 0.015,
+        z: Math.sin(time * 0.6) * 0.01
+      }
+      rigidBodyRef.current.applyTorqueImpulse(torque, true)
+    }
+
     if (spawning && materialRef.current) {
       materialRef.current.opacity = THREE.MathUtils.lerp(
         materialRef.current.opacity,
@@ -73,22 +95,6 @@ function Balloon({ position, color, meshToBodyRef, spawning }) {
   useEffect(() => {
     if (mesh.current && rigidBodyRef.current) {
       meshToBodyRef.current.set(mesh.current, rigidBodyRef.current)
-      mesh.current.raycast = (raycaster, intersects) => {
-        const sphere = new THREE.Sphere(mesh.current.position, 2)
-        const rayDirection = new THREE.Vector3()
-        rayDirection.copy(raycaster.ray.direction)
-        
-        const intersectionPoint = new THREE.Vector3()
-        const result = raycaster.ray.intersectSphere(sphere, intersectionPoint)
-        
-        if (result) {
-          intersects.push({
-            distance: raycaster.ray.origin.distanceTo(intersectionPoint),
-            point: intersectionPoint,
-            object: mesh.current
-          })
-        }
-      }
     }
     return () => {
       if (mesh.current) {
@@ -98,7 +104,16 @@ function Balloon({ position, color, meshToBodyRef, spawning }) {
   }, [meshToBodyRef])
 
   return (
-    <RigidBody ref={rigidBodyRef} gravityScale={0} colliders="ball">
+    <RigidBody 
+      ref={rigidBodyRef} 
+      gravityScale={0.02}
+      linearDamping={1.5}
+      angularDamping={1.0}
+      mass={balloonMass.current}
+      restitution={0.8}
+      friction={0.1}
+      colliders="ball"
+    >
       <mesh 
         ref={mesh} 
         position={position} 
@@ -145,10 +160,11 @@ function Scene3D({ setModelLoaded }) {
   const rapierRef = useRef(null)
   const worldRef = useRef(null)
   const meshToBodyRef = useRef(new Map())
-  const [forceAmount] = useState(270)
+  const [forceAmount] = useState(250)
   const { camera } = useThree()
   const { balloonSpawnQueue, clearSpawnQueue } = useBalloons()
   const [balloons, setBalloons] = useState([])
+  const raycasterRef = useRef(new THREE.Raycaster())
 
   const initialBalloonData = useMemo(() => 
     Array.from({ length: 100 }).map(() => ({
@@ -192,47 +208,72 @@ function Scene3D({ setModelLoaded }) {
 
   useEffect(() => {
     const handleGlobalPointerMove = (event) => {
-      const { clientX, clientY } = event
       const rapier = rapierRef.current
       
       if (rapier) {
-        const canvas = camera.userData?.canvas || document.querySelector('canvas')
+        const canvas = document.querySelector('canvas')
         if (!canvas) return
         
         const rect = canvas.getBoundingClientRect()
         
-        const x = clientX - rect.left
-        const y = clientY - rect.top
+        if (event.clientX < rect.left || event.clientX > rect.right ||
+            event.clientY < rect.top || event.clientY > rect.bottom) {
+          return
+        }
+        
+        const x = event.clientX - rect.left
+        const y = event.clientY - rect.top
         
         const mouse = new THREE.Vector2(
           (x / rect.width) * 2 - 1,
           -(y / rect.height) * 2 + 1
         )
         
-        const raycaster = new THREE.Raycaster()
-        raycaster.setFromCamera(mouse, camera)
+        raycasterRef.current.setFromCamera(mouse, camera)
         
         const meshes = Array.from(meshToBodyRef.current.keys())
-        const intersects = raycaster.intersectObjects(meshes, false)
         
-        intersects.forEach(intersect => {
-          const mesh = intersect.object
-          const rigidBody = meshToBodyRef.current.get(mesh)
+        meshes.forEach(mesh => {
+          if (!mesh.position) return
           
-          if (rigidBody) {
-            const threeVector = new THREE.Vector3(
-              (Math.random() - 0.5) * 2,
-              (Math.random() - 0.5) * 2,
-              (Math.random() - 0.5) * 2
-            ).normalize().multiplyScalar(forceAmount)
+          const balloonWorldPos = new THREE.Vector3()
+          mesh.getWorldPosition(balloonWorldPos)
+          
+          const sphere = new THREE.Sphere(balloonWorldPos, 3.0)
+          const intersectionPoint = new THREE.Vector3()
+          
+          if (raycasterRef.current.ray.intersectSphere(sphere, intersectionPoint)) {
+            const rigidBody = meshToBodyRef.current.get(mesh)
             
-            const randomDirection = new rapier.Vector3(
-              threeVector.x,
-              threeVector.y,
-              threeVector.z
-            )
-            
-            rigidBody.applyImpulse(randomDirection, true)
+            if (rigidBody) {
+              const pushDirection = new THREE.Vector3()
+              pushDirection.subVectors(balloonWorldPos, intersectionPoint)
+              
+              if (pushDirection.length() < 0.1) {
+                pushDirection.copy(raycasterRef.current.ray.direction)
+                pushDirection.negate()
+              }
+              
+              pushDirection.normalize()
+              pushDirection.multiplyScalar(forceAmount)
+              
+              pushDirection.y += forceAmount * 0.3
+              
+              const impulse = new rapier.Vector3(
+                pushDirection.x,
+                pushDirection.y,
+                pushDirection.z
+              )
+              
+              rigidBody.applyImpulse(impulse, true)
+              
+              const torque = new rapier.Vector3(
+                (Math.random() - 0.5) * 8,
+                (Math.random() - 0.5) * 8,
+                (Math.random() - 0.5) * 8
+              )
+              rigidBody.applyTorqueImpulse(torque, true)
+            }
           }
         })
       }

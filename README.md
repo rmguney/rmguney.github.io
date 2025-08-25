@@ -59,12 +59,17 @@ Custom-built retro gaming interface with modern web technologies:
 
 ### Build System & Deployment
 
-**Next.js** configuration optimized for static export:
+**Next.js** configuration optimized for static export with automated CI/CD:
 
 - **Static Generation**: Pre-rendered pages for optimal loading performance
 - **Image Optimization**: Configured for static hosting environments
 - **Environment Variables**: Secure token management for GitHub API access
 - **PostCSS Pipeline**: TailwindCSS processing with custom utility classes
+- **GitHub Actions**: Automated CI/CD with npm caching and GitHub Pages deployment
+- **Build Validation**: Configuration conflict detection and cleanup of Next.js config files
+- **Artifact Management**: Automated upload and deployment using `actions/upload-pages-artifact@v3`
+- **Concurrency Control**: Job grouping and cancellation policies to prevent deployment conflicts
+- **Security Permissions**: Minimal required permissions (`contents: read`, `pages: write`, `id-token: write`)
 
 ### Responsive Design Strategy
 
@@ -75,11 +80,12 @@ Custom-built retro gaming interface with modern web technologies:
 - **Fluid Typography**: Responsive text scaling across device sizes
 - **Grid System**: CSS Grid and Flexbox for complex layout management
 
-### Technical Features
+### Usage and Interaction
 
 **3D Interaction Model:**
 
-- Click and drag to interact with physics-enabled balloons
+- Click and drag to rotate the 3D scene
+- Hover over the physics-enabled balloons to interact with them
 - Tech stack icons spawn themed balloon clusters with unique visual properties
 - Orbital camera controls for 3D scene exploration
 
@@ -89,13 +95,3 @@ Custom-built retro gaming interface with modern web technologies:
 - A/B button system for quick access to live sites and GitHub repositories
 - Integrated README viewer for repositories without live deployments
 - Real-time repository metadata display including language distribution and project statistics
-
-## Tech Stack
-
-- **Frontend Framework**: Next.js 15 with React 18
-- **3D Graphics**: React Three Fiber + Drei + Rapier Physics
-- **Styling**: TailwindCSS with custom utility classes
-- **Animation**: Framer Motion with intersection-based triggers
-- **API Integration**: GitHub REST API with token authentication
-- **Content Processing**: React Markdown with GitHub Flavored Markdown support
-- **Build Tools**: PostCSS, ESLint, and Next.js compiler optimizations

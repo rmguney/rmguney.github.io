@@ -65,41 +65,35 @@ const TextBody = () => {
       sceneColor: "#d4bbfa",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     },
-     {
+    {
       img: "/certs/mthde.png",
       name: "Threat Hunting and Detection Engineering",
       description: "Mitre, Aug 2025",
       sceneColor: "#b2c9f7",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     },
-/*     {
+    {
       img: "/certs/maem.png",
       name: "Adversary Emulation Methodology",
-      description: "Mitre, Oct 2025",
+      description: "Mitre, Sep 2025",
       sceneColor: "#f58282",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    }, */
+    },
 /*     {
       img: "/certs/matde.png",
       name: "Access Token Detection Engineering",
-      description: "Mitre, Dec 2025",
+      description: "Mitre, Oct 2025",
       sceneColor: "#969090",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     }, */
 /*     {
-      img: "/certs/crto.png",
-      name: "Certified Red Team Operator",
-      description: "Zero-Point, 2026",
-      sceneColor: "#91696a",
+      img: "/certs/cbbh.webp",
+      name: "Certified Bug Bounty Hunter",
+      description: "Hack the Box, In progress",
+      sceneColor: "#676882",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     }, */
-/*     {
-      img: "/certs/crtl.png",
-      name: "Certified Red Team Lead",
-      description: "Zero-Point, 2027",
-      sceneColor: "#77778f",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    }, */
+
   ];
 
   const renderIcon = ({ img, name }) => (
@@ -169,14 +163,14 @@ const TextBody = () => {
           className="text-sm leading-relaxed text-[#0f0f0f] mt-4 lg:tracking-widest text-justify"
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
         >
-          Hello! I mostly work on simulation systems, visual analytics, and some security tooling. This is my personal portfolio showcasing some of my open source projects. Feel free to reach out, cheers!
+          Hello! I mostly work on interactive 3D systems and visual analytics, with a focus on application security. This is my personal portfolio showcasing my open source projects. Feel free to check my LinkedIn for my professional background, and to reach out, cheers!
         </motion.p>
 
         <motion.div
           variants={techIconsContainerVariants}
           initial="hidden"
           animate={isInView ? "show" : "hidden"}
-          className="flex space-x-5 mt-3"
+          className="grid grid-cols-5 md:grid-cols-10 lg:flex lg:space-x-5 gap-2 lg:gap-0 mt-3"
         >
           {techIcons.map((iconData, index) => (
             <motion.div

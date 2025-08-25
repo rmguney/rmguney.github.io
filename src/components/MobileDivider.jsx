@@ -11,16 +11,14 @@ const MobileDivider = () => {
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
       
-      // Calculate how much we can scroll in total
       const scrollableDistance = documentHeight - windowHeight;
-      // Calculate current scroll progress (0 to 1)
       const scrollProgress = scrollTop / scrollableDistance;
       
       setIsInUpperHalf(scrollProgress < 0.3);
     };
 
     window.addEventListener('scroll', handleScroll);
-    handleScroll(); // Initial check
+    handleScroll();
 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
