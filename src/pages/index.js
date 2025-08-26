@@ -18,6 +18,10 @@ export default function HomePage() {
     <BalloonProvider>
       <Head>
         <title>/rmguney</title>
+        <meta property="og:title" content="/rmguney" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://rmguney.github.io" />
+        <meta property="og:image" content="https://rmguney.github.io/favicon.ico" />
       </Head>
       <main>
         <section className="w-full h-screen relative" style={{background: "linear-gradient(to bottom right, #fff 40%, #fff 75%)"}}>

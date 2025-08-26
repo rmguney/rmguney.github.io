@@ -40,49 +40,49 @@ const TextBody = () => {
     {
       img: "/certs/mfun.png",
       name: "Att&ck Fundamentals",
-      description: "Mitre, Apr 2025",
+      description: "MITRE MAD20, Apr 2025",
       sceneColor: "#b3b3b3",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     },
     {
       img: "/certs/msoca.png",
       name: "SOC Assessment",
-      description: "Mitre, May 2025",
+      description: "MITRE MAD20, May 2025",
       sceneColor: "#b5fab4",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     },
     {
       img: "/certs/mcti.png",
       name: "Cyber Threat Intelligence",
-      description: "Mitre, Jun 2025",
+      description: "MITRE MAD20, Jun 2025",
       sceneColor: "#f5e898",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     },
     {
       img: "/certs/mptm.png",
       name: "Purple Teaming Methodology",
-      description: "Mitre, Jul 2025",
+      description: "MITRE MAD20, Jul 2025",
       sceneColor: "#d4bbfa",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     },
     {
       img: "/certs/mthde.png",
       name: "Threat Hunting and Detection Engineering",
-      description: "Mitre, Aug 2025",
+      description: "MITRE MAD20, Aug 2025",
       sceneColor: "#b2c9f7",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     },
     {
       img: "/certs/maem.png",
       name: "Adversary Emulation Methodology",
-      description: "Mitre, Sep 2025",
+      description: "MITRE MAD20, Sep 2025",
       sceneColor: "#f58282",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     },
 /*     {
       img: "/certs/matde.png",
       name: "Access Token Detection Engineering",
-      description: "Mitre, Oct 2025",
+      description: "MITRE MAD20, Oct 2025",
       sceneColor: "#969090",
       balloonOptions: { count: 20, speed: 1.5, rotation: true },
     }, */
@@ -199,13 +199,13 @@ const TextBody = () => {
             >
               {renderIcon(iconData)}
               <span
-                className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] transition-opacity pointer-events-none whitespace-nowrap"
+                className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[9px] transition-opacity pointer-events-none whitespace-nowrap"
                 style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
               >
                 {iconData.name}
               </span>
               <span
-                className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[9px] text-neutral-600 transition-opacity pointer-events-none whitespace-nowrap"
+                className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[8px] text-neutral-600 transition-opacity pointer-events-none whitespace-nowrap"
                 style={{ textShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
               >
                 {iconData.description}
