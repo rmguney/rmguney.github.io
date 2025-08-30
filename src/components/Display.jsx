@@ -42,7 +42,7 @@ export default function GameBoy() {
   const [filteredRepos, setFilteredRepos] = useState([]);
   
   const MAJOR_PROGRAMMING_LANGUAGES = [
-    'Python', 'C', 'C++', 'C#', 'Java', 'JavaScript', 'TypeScript', 'Rust',
+    'Python', 'C', 'C++', 'C#', 'Rust', 'Java', 'JavaScript', 'TypeScript',
     'Go', 'Ruby', 'R', 'Zig', 'Objective-C', 'Scala', 'Haskell', 'COBOL', 'Perl', 'Lua', 'Swift', 'Kotlin', 'PHP', 'Dart'
   ];
   
@@ -103,7 +103,7 @@ export default function GameBoy() {
   }, []);
 
   const LANGUAGE_GROUPS = {
-    "JavaScript": ["HTML", "Vue", "Svelte"],
+    "JavaScript": ["HTML", "Vue", "Svelte", "TypeScript"],
   };
 
   const LANGUAGE_GROUP_LOOKUP = {};
@@ -1057,7 +1057,7 @@ export default function GameBoy() {
                   mass: 0.8,
                 }
               }}
-              className="absolute lg:-top-24 hidden lg:block text-[50px] lg:text-[125px] font-black whitespace-nowrap"
+              className="absolute lg:-top-24 hidden lg:block text-[50px] lg:text-[120px] font-black whitespace-nowrap"
               style={{ 
                 background: 'linear-gradient(to bottom, rgba(255,255,255,0.4), rgba(255,255,255,0.2))',
                 WebkitBackgroundClip: 'text',
@@ -1088,7 +1088,7 @@ export default function GameBoy() {
                   mass: 0.8,
                 }
               }}
-              className="pt-6 lg:pt-0 relative text-4xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white/80 via-amber-50/90 to-white/80 lg:tracking-[0.2em] text-center lg:text-left"
+              className="pt-6 lg:pt-0 relative text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white/80 via-amber-50/90 to-white/80 lg:tracking-[0.2em] text-center lg:text-left"
               style={{ textShadow: '0 0 20px rgba(255,255,255,0.2)' }}>
               REPOSITORIES
             </motion.h1>

@@ -1,6 +1,6 @@
 # Interactive 3D Portfolio
 
-Personal portfolio website featuring a 3D environment with real-time physics simulation and dynamic GitHub integration.
+Personal portfolio website featuring an immersive 3D environment with physics-based balloon interactions and professional background showcase.
 
 ## Technical Architecture
 
@@ -10,88 +10,67 @@ Built on **React Three Fiber** (R3F), a React renderer for Three.js that provide
 
 **Key 3D Features:**
 
-- **Balloon Physics System**: Interactive 3D balloons with realistic physics properties including gravity, collision detection, and momentum transfer
-- **GLTF Model Integration**: Animated 3D models loaded via `useGLTF` with automatic shadow casting/receiving and tone mapping disabled for enhanced lighting
-- **Real-time Animation Loop**: Leverages `useFrame` for 60fps animation updates, including floating animations and physics step calculations
-- **Camera Controls**: Orbital camera system with smooth transitions and responsive interaction boundaries
+- **GLTF Model Integration**: Dual model system with main scene model and rotating skybox, featuring automatic shadow casting/receiving and tone mapping optimization
+- **Interactive Balloon Physics**: Physics-enabled balloons with realistic buoyancy, wind forces, and collision detection
+- **Mouse Interaction System**: Real-time balloon manipulation with proximity-based force application and visual deformation
+- **Camera Controls**: Orbital camera system with responsive positioning and interaction boundaries
 
 ### State Management & Context Architecture
 
-Implements a custom **React Context** system for managing balloon spawn events across components:
+**React Context** system for global state management:
 
-- **BalloonContext**: Centralized state for balloon spawning with queue-based system
-- **Event-driven Spawning**: Tech stack icons trigger themed balloon clusters with customizable parameters (color, count, speed, size, rotation)
-
-### GitHub API Integration
-
-Dynamic repository data fetching with comprehensive metadata extraction:
-
-- **REST API Integration**: Fetches user repositories with authentication support via GitHub tokens
-- **Language Analysis**: Retrieves and calculates code distribution across programming languages
-- **Importance Algorithm**: Custom scoring system based on stars, watchers, forks, and repository size
-- **README Processing**: Base64 decoding of README content with UTF-8 text processing
-- **Rate Limiting Handling**: Implements proper headers and error handling for API constraints
-
-### GameBoy-Inspired UI System
-
-Custom-built retro gaming interface with modern web technologies:
-
-- **Cartridge Navigation**: 3D-transformed repository cards with perspective effects and hover animations
-- **D-pad Controls**: Directional navigation system with keyboard and click event handling
-- **Dual Screen Layout**: Separates repository selection from content display, mimicking classic gaming handhelds
-- **README Renderer**: Uses `react-markdown` with `remark-gfm` plugin for GitHub Flavored Markdown support
+- **BalloonContext**: Manages balloon spawning queue and color-coded interactions
+- **Loading State Management**: Synchronized loading tracking for multiple 3D assets
+- **Certificate Integration**: Dynamic balloon spawning triggered by professional credential interactions
 
 ### Animation & Interaction Systems
 
 **Framer Motion** powers sophisticated animation sequences:
 
-- **Staggered Animations**: Sequential element reveals with configurable timing delays
-- **Intersection Observer Integration**: Viewport-based animation triggers using `useInView`
-- **Transform Effects**: 3D CSS transforms for card rotations, scaling, and perspective effects
-- **Gesture Recognition**: Click, drag, and hover interactions with smooth state transitions
+- **Staggered Component Loading**: Sequential element reveals with intersection observer triggers
+- **Interactive Text Elements**: Hover animations for LinkedIn integration with spring physics
+- **Certificate Showcase**: Grid-based certification display with individual hover effects and balloon spawning
+- **Wobble Physics**: Advanced balloon deformation system with impact-based animations
 
 ### Performance Optimizations
 
+- **Distance Culling**: Automatic balloon cleanup system preventing performance degradation
+- **Dual Model Loading**: Coordinated loading system for main model and skybox assets
 - **Component Lazy Loading**: `Suspense` boundaries for 3D scene initialization
-- **Memory Management**: Proper cleanup of animation mixers, physics bodies, and event listeners
-- **Pagination System**: Repository data chunking to maintain smooth UI performance
-- **Viewport Culling**: Intersection observers to optimize animation triggers
+- **Memory Management**: Proper cleanup of physics bodies, animation loops, and event listeners
+- **Conditional Rendering**: All scene components only appear after complete scene loading
 
 ### Build System & Deployment
 
 **Next.js** configuration optimized for static export with automated CI/CD:
 
 - **Static Generation**: Pre-rendered pages for optimal loading performance
-- **Image Optimization**: Configured for static hosting environments
-- **Environment Variables**: Secure token management for GitHub API access
+- **Asset Optimization**: GLTF model loading with automatic caching
 - **PostCSS Pipeline**: TailwindCSS processing with custom utility classes
+- **Environment Configuration**: Development and production build optimization
 - **GitHub Actions**: Automated CI/CD with npm caching and GitHub Pages deployment
-- **Build Validation**: Configuration conflict detection and cleanup of Next.js config files
-- **Artifact Management**: Automated upload and deployment using `actions/upload-pages-artifact@v3`
-- **Concurrency Control**: Job grouping and cancellation policies to prevent deployment conflicts
-- **Security Permissions**: Minimal required permissions (`contents: read`, `pages: write`, `id-token: write`)
+- **Build Validation**: Automated testing and deployment pipeline with artifact management
+- **Deployment Automation**: Push-to-deploy workflow with automated static site generation
 
 ### Responsive Design Strategy
 
 **TailwindCSS** utility-first approach with:
 
 - **Mobile-First Breakpoints**: Adaptive layouts from mobile to desktop
-- **Touch-Friendly Interactions**: Optimized button sizes and gesture areas
-- **Fluid Typography**: Responsive text scaling across device sizes
-- **Grid System**: CSS Grid and Flexbox for complex layout management
+- **Touch-Friendly Interactions**: Optimized balloon interactions for mobile devices
+- **Fluid Typography**: Responsive text scaling with professional typography
+- **Grid System**: CSS Grid and Flexbox for complex certification layout
 
 ### Usage and Interaction
 
-**3D Interaction Model:**
+**3D Environment Interaction:**
 
-- Click and drag to rotate the 3D scene
-- Hover over the physics-enabled balloons to interact with them
-- Tech stack icons spawn themed balloon clusters with unique visual properties
+- Hover over balloons to apply physics forces and trigger wobble animations
 - Orbital camera controls for 3D scene exploration
+- Interactive balloon spawning via credential showcase
 
-**Portfolio Navigation:**
+**Professional Portfolio Navigation:**
 
-- GameBoy-style D-pad navigation between repository pages
-- A/B button system for quick access to live sites and GitHub repositories
-- Integrated README viewer for repositories without live deployments
-- Real-time repository metadata display including language distribution and project statistics
+- Certificate hover effects with color-coded balloon spawning
+- LinkedIn profile integration with hover animations
+- GitHub repository access via animated social links

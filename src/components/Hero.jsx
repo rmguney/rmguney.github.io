@@ -146,24 +146,41 @@ const TextBody = () => {
       >
         <motion.h1
           variants={itemVariants}
-          className="text-5xl font-semibold text-[#0f0f0f] lg:tracking-wider"
+          className="text-5xl font-semibold text-[#0f0f0f] lg:tracking-[0.21em]"
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
         >
-          R. Melih Güney
+          R. MELIH GUNEY
         </motion.h1>
         <motion.small
           variants={itemVariants}
-          className="text-[#0f0f0f] font-light text-xs lg:tracking-widest"
+          className="text-[#0f0f0f] font-light text-xs lg:tracking-[0.35em]"
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
         >
           Software Engineer, MSc
         </motion.small>
         <motion.p
           variants={itemVariants}
-          className="text-sm leading-relaxed text-[#0f0f0f] mt-4 lg:tracking-widest text-justify"
+          className="text-sm leading-relaxed text-[#0f0f0f] mt-4 lg:tracking-[0.104em] text-justify"
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
         >
-          Hello! I mostly work on interactive 3D systems and visual analytics, with a focus on application security. This is my personal portfolio showcasing my open source projects. Feel free to check my LinkedIn for my professional background, and to reach out, cheers!
+          Hello! I mostly work on interactive 3D systems and visual analytics, with a focus on application security. This is my personal portfolio showcasing my open source projects. Feel free to check my{" "}
+          <motion.a
+            href="https://linkedin.com/in/rmguney"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="cursor-pointer font-medium inline-block"
+            initial={{ color: "" }}
+            whileHover={{ 
+              scale: 1.1,
+              color: "#0A66C2"
+            }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
+          >
+            LinkedIn
+          </motion.a>{" "}
+          for my professional background, and to reach out, cheers!
         </motion.p>
 
         <motion.div
@@ -205,7 +222,7 @@ const TextBody = () => {
                 {iconData.name}
               </span>
               <span
-                className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[8px] text-neutral-600 transition-opacity pointer-events-none whitespace-nowrap"
+                className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[8px] text-neutral-800 transition-opacity pointer-events-none whitespace-nowrap"
                 style={{ textShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
               >
                 {iconData.description}

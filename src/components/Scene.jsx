@@ -36,44 +36,129 @@ function Model({ setModelLoaded }) {
   })
 
   return (
-    <group ref={group} scale={2} position={[17, -5, 0]}>
+    <group ref={group} scale={[2, 2, 2]} position={[17, -5, 0]}>
       <primitive object={scene} />
     </group>
   )
 }
 
-function Balloon({ position, color, meshToBodyRef, spawning }) {
+function Skybox({ setSkyboxLoaded }) {
+  const skyboxGroupRef = useRef()
+  const { scene } = useGLTF("./models/skybox.glb", true)
+
+  useEffect(() => {
+    if (scene) {
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = false
+          child.receiveShadow = false
+          if (child.material) {
+            child.material.toneMapped = false
+            child.material.depthWrite = false
+          }
+        }
+      })
+      setSkyboxLoaded(true)
+    }
+  }, [scene, setSkyboxLoaded])
+
+  useFrame((state) => {
+    if (skyboxGroupRef.current) {
+      skyboxGroupRef.current.rotation.y = state.clock.getElapsedTime() * 0.001
+    }
+  })
+
+  return (
+    <group ref={skyboxGroupRef} position={[0, 0, 0]}>
+      <primitive object={scene} />
+    </group>
+  )
+}
+
+function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }) {
   const mesh = useRef()
+  const balloonMeshRef = useRef()
+  const balloonGroupRef = useRef()
   const rigidBodyRef = useRef()
   const materialRef = useRef()
+  const knotMaterialRef = useRef()
   const windOffset = useRef(Math.random() * Math.PI * 2)
   const balloonMass = useRef(0.1 + Math.random() * 0.05)
+  const spawnPosition = useRef(new THREE.Vector3(...position))
+  
+  const wobbleRef = useRef({ x: 0, y: 0, z: 0, intensity: 0 })
+  const lastImpactRef = useRef({ point: new THREE.Vector3(), time: 0 })
+  const deformationRef = useRef({ x: 1, y: 1, z: 1 })
+  
+  const originalRotationRef = useRef({ x: 0, y: 0, z: 0 })
 
   useFrame((state, delta) => {
+    const currentTime = state.clock.getElapsedTime()
+    
     if (rigidBodyRef.current) {
-      const buoyancyForce = { x: 0, y: 9.8 * balloonMass.current * 0.15, z: 0 }
+      const buoyancyForce = { x: 0, y: 9.8 * balloonMass.current * 0.1, z: 0 }
       rigidBodyRef.current.applyImpulse(buoyancyForce, true)
       
-      const time = state.clock.getElapsedTime()
       const windForce = {
-        x: Math.sin(time * 0.5 + windOffset.current) * 0.08,
-        y: Math.sin(time * 0.3) * 0.02,
-        z: Math.cos(time * 0.4 + windOffset.current) * 0.08
+        x: Math.sin(currentTime * 0.5 + windOffset.current) * 0.08,
+        y: Math.sin(currentTime * 0.3) * 0.02,
+        z: Math.cos(currentTime * 0.4 + windOffset.current) * 0.08
       }
       rigidBodyRef.current.applyImpulse(windForce, true)
       
       const torque = {
-        x: Math.sin(time * 0.7) * 0.01,
-        y: Math.cos(time * 0.5) * 0.015,
-        z: Math.sin(time * 0.6) * 0.01
+        x: Math.sin(currentTime * 0.7) * 0.01,
+        y: Math.cos(currentTime * 0.5) * 0.015,
+        z: Math.sin(currentTime * 0.6) * 0.01
       }
       rigidBodyRef.current.applyTorqueImpulse(torque, true)
     }
 
-    if (spawning && materialRef.current) {
+    if (balloonMeshRef.current && balloonGroupRef.current) {
+      const timeSinceImpact = currentTime - lastImpactRef.current.time
+      
+      if (timeSinceImpact < 2.0) {
+        const wobbleDecay = Math.max(0, 1 - timeSinceImpact / 2.0)
+        const wobbleFreq = 12 * (1 + wobbleRef.current.intensity)
+        
+        const wobbleX = Math.sin(currentTime * wobbleFreq) * wobbleRef.current.x * wobbleDecay * 0.5
+        const wobbleY = Math.sin(currentTime * wobbleFreq * 1.2) * wobbleRef.current.y * wobbleDecay * 0.3
+        const wobbleZ = Math.sin(currentTime * wobbleFreq * 0.8) * wobbleRef.current.z * wobbleDecay * 0.5
+        
+        const deformX = 1 + wobbleX * 0.8
+        const deformY = 1 + wobbleY * 0.6  
+        const deformZ = 1 + wobbleZ * 0.8
+        
+        balloonMeshRef.current.scale.set(deformX, deformY, deformZ)
+        
+        const rotationX = wobbleX * 1
+        const rotationZ = wobbleZ * 1
+        
+        const complementaryRotX = Math.sin(currentTime * wobbleFreq * 0.7) * wobbleRef.current.z * wobbleDecay * 0.2
+        const complementaryRotY = Math.sin(currentTime * wobbleFreq * 0.5) * wobbleRef.current.intensity * wobbleDecay * 0.15
+        const complementaryRotZ = Math.sin(currentTime * wobbleFreq * 0.9) * wobbleRef.current.x * wobbleDecay * 0.2
+        
+        balloonGroupRef.current.rotation.x = originalRotationRef.current.x + rotationX + complementaryRotX
+        balloonGroupRef.current.rotation.y = originalRotationRef.current.y + complementaryRotY
+        balloonGroupRef.current.rotation.z = originalRotationRef.current.z + rotationZ + complementaryRotZ
+      } else {
+        balloonMeshRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), delta * 5)
+        balloonGroupRef.current.rotation.x = THREE.MathUtils.lerp(balloonGroupRef.current.rotation.x, originalRotationRef.current.x, delta * 5)
+        balloonGroupRef.current.rotation.y = THREE.MathUtils.lerp(balloonGroupRef.current.rotation.y, originalRotationRef.current.y, delta * 5)
+        balloonGroupRef.current.rotation.z = THREE.MathUtils.lerp(balloonGroupRef.current.rotation.z, originalRotationRef.current.z, delta * 5)
+      }
+    }
+
+    if (spawning && materialRef.current && knotMaterialRef.current) {
       materialRef.current.opacity = THREE.MathUtils.lerp(
         materialRef.current.opacity,
-        0.8,
+        0.85,
+        0.1
+      );
+      
+      knotMaterialRef.current.opacity = THREE.MathUtils.lerp(
+        knotMaterialRef.current.opacity,
+        0.9,
         0.1
       );
       
@@ -83,18 +168,65 @@ function Balloon({ position, color, meshToBodyRef, spawning }) {
         0.1
       );
     }
+
+    if (mesh.current && onRemove) {
+      const currentPosition = new THREE.Vector3()
+      mesh.current.getWorldPosition(currentPosition)
+      const distanceFromSpawn = currentPosition.distanceTo(spawnPosition.current)
+      
+      if (distanceFromSpawn > 100) {
+        onRemove(id)
+      }
+    }
   });
+
+  const triggerWobble = (impactPoint, impactDirection, intensity = 1, currentTime) => {
+    if (!balloonMeshRef.current) return
+    
+    const balloonPos = new THREE.Vector3()
+    balloonMeshRef.current.getWorldPosition(balloonPos)
+    
+    const relativeImpact = impactPoint.clone().sub(balloonPos).normalize()
+    
+    wobbleRef.current.x = relativeImpact.x * intensity
+    wobbleRef.current.y = relativeImpact.y * intensity * 0.5
+    wobbleRef.current.z = relativeImpact.z * intensity
+    wobbleRef.current.intensity = intensity
+    
+    lastImpactRef.current.point.copy(impactPoint)
+    lastImpactRef.current.time = currentTime || performance.now() / 1000
+  }
 
   useEffect(() => {
     if (mesh.current && spawning) {
       mesh.current.scale.set(0.1, 0.1, 0.1);
-      materialRef.current.opacity = 0;
+      if (materialRef.current) {
+        materialRef.current.opacity = 0;
+      }
+      if (knotMaterialRef.current) {
+        knotMaterialRef.current.opacity = 0;
+      }
+    }
+    
+    if (balloonMeshRef.current && originalRotationRef.current.x === 0 && originalRotationRef.current.y === 0 && originalRotationRef.current.z === 0) {
+      originalRotationRef.current.x = balloonMeshRef.current.rotation.x
+      originalRotationRef.current.y = balloonMeshRef.current.rotation.y
+      originalRotationRef.current.z = balloonMeshRef.current.rotation.z
     }
   }, [spawning]);
 
   useEffect(() => {
     if (mesh.current && rigidBodyRef.current) {
       meshToBodyRef.current.set(mesh.current, rigidBodyRef.current)
+      mesh.current.triggerWobble = triggerWobble
+      
+      if (balloonGroupRef.current) {
+        originalRotationRef.current = {
+          x: balloonGroupRef.current.rotation.x,
+          y: balloonGroupRef.current.rotation.y,
+          z: balloonGroupRef.current.rotation.z
+        }
+      }
     }
     return () => {
       if (mesh.current) {
@@ -120,15 +252,35 @@ function Balloon({ position, color, meshToBodyRef, spawning }) {
         castShadow 
         receiveShadow
       >
-        <sphereGeometry args={[2, 32, 32]} />
-        <meshStandardMaterial 
-          ref={materialRef}
-          color={color} 
-          transparent={true} 
-          opacity={spawning ? 0 : 0.8} 
-          metalness={.3} 
-          roughness={.6} 
-        />
+        <group ref={balloonGroupRef}>
+          <mesh ref={balloonMeshRef}>
+            <sphereGeometry args={[2, 32, 32]} />
+            <meshPhysicalMaterial 
+              ref={materialRef}
+              color={color} 
+              transparent={true} 
+              opacity={spawning ? 0 : 0.85}
+              roughness={0.1}
+              metalness={0.0}
+              clearcoat={0.8}
+              clearcoatRoughness={0.1}
+              transmission={0.1}
+              thickness={0.5}
+            />
+          </mesh>
+          {/* Balloon knot - with proper material reference */}
+          <mesh position={[0, -2.1, 0]} scale={[0.3, 0.4, 0.3]}>
+            <sphereGeometry args={[0.5, 16, 16]} />
+            <meshPhysicalMaterial 
+              ref={knotMaterialRef}
+              color={color}
+              transparent={true}
+              opacity={spawning ? 0 : 0.9}
+              roughness={0.8}
+              metalness={0.0}
+            />
+          </mesh>
+        </group>
       </mesh>
     </RigidBody>
   )
@@ -165,28 +317,56 @@ function Scene3D({ setModelLoaded }) {
   const { balloonSpawnQueue, clearSpawnQueue } = useBalloons()
   const [balloons, setBalloons] = useState([])
   const raycasterRef = useRef(new THREE.Raycaster())
+  const clockTimeRef = useRef(0)
+  
+  const [modelLoadedState, setModelLoadedState] = useState(false)
+  const [skyboxLoadedState, setSkyboxLoadedState] = useState(false)
 
-  const initialBalloonData = useMemo(() => 
-    Array.from({ length: 100 }).map(() => ({
+  useEffect(() => {
+    const allLoaded = modelLoadedState && skyboxLoadedState
+    setModelLoaded(allLoaded)
+  }, [modelLoadedState, skyboxLoadedState, setModelLoaded])
+
+  useFrame((state) => {
+    clockTimeRef.current = state.clock.getElapsedTime()
+  })
+
+  const [initialBalloons, setInitialBalloons] = useState(() => 
+    Array.from({ length: 60 }).map((_, index) => ({
       position: getRandomPosition(),
-      color: getRandomColor()
+      color: getRandomColor(),
+      id: `initial-${index}`
     }))
-  , [])
+  )
+
+  const removeBalloon = (balloonId) => {
+    if (balloonId.startsWith('initial-')) {
+      setInitialBalloons(prev => prev.filter(balloon => balloon.id !== balloonId))
+    } else {
+      setBalloons(prev => prev.filter(balloon => balloon.id !== balloonId))
+    }
+  }
 
   useEffect(() => {
     if (balloonSpawnQueue.length > 0) {
       balloonSpawnQueue.forEach(({ color, count }) => {
-        const newBalloons = Array.from({ length: count }).map(() => ({
-          position: getRandomPosition(),
-          color: color,
-          id: Math.random().toString(36).substr(2, 9),
-          spawning: true
-        }));
-        setBalloons(prev => [...prev, ...newBalloons]);
+        const currentTotalBalloons = initialBalloons.length + balloons.length;
+        const maxNewBalloons = Math.max(0, 400 - currentTotalBalloons);
+        const actualCount = Math.min(count, maxNewBalloons);
+        
+        if (actualCount > 0) {
+          const newBalloons = Array.from({ length: actualCount }).map(() => ({
+            position: getRandomPosition(),
+            color: color,
+            id: Math.random().toString(36).substr(2, 9),
+            spawning: true
+          }));
+          setBalloons(prev => [...prev, ...newBalloons]);
+        }
       });
       clearSpawnQueue();
     }
-  }, [balloonSpawnQueue, clearSpawnQueue]);
+  }, [balloonSpawnQueue, clearSpawnQueue, initialBalloons.length, balloons.length]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -254,10 +434,14 @@ function Scene3D({ setModelLoaded }) {
                 pushDirection.negate()
               }
               
-              pushDirection.normalize()
-              pushDirection.multiplyScalar(forceAmount)
+              const distanceFromCenter = intersectionPoint.distanceTo(balloonWorldPos)
+              const forceIntensity = Math.max(0.3, 1 - distanceFromCenter / 3.0)
               
-              pushDirection.y += forceAmount * 0.3
+              pushDirection.normalize()
+              const adjustedForceAmount = forceAmount * forceIntensity
+              pushDirection.multiplyScalar(adjustedForceAmount)
+              
+              pushDirection.y += adjustedForceAmount * 0.3
               
               const impulse = new rapier.Vector3(
                 pushDirection.x,
@@ -267,12 +451,22 @@ function Scene3D({ setModelLoaded }) {
               
               rigidBody.applyImpulse(impulse, true)
               
+              const torqueDirection = new THREE.Vector3()
+              torqueDirection.crossVectors(
+                intersectionPoint.clone().sub(balloonWorldPos),
+                pushDirection.clone().normalize()
+              )
+              
               const torque = new rapier.Vector3(
-                (Math.random() - 0.5) * 8,
-                (Math.random() - 0.5) * 8,
-                (Math.random() - 0.5) * 8
+                torqueDirection.x * forceIntensity * 2,
+                torqueDirection.y * forceIntensity * 2,
+                torqueDirection.z * forceIntensity * 2
               )
               rigidBody.applyTorqueImpulse(torque, true)
+              
+              if (mesh.triggerWobble) {
+                mesh.triggerWobble(intersectionPoint, pushDirection, forceIntensity, clockTimeRef.current)
+              }
             }
           }
         })
@@ -298,25 +492,34 @@ function Scene3D({ setModelLoaded }) {
       />
       <Physics>
         <Suspense>
-          <Model setModelLoaded={setModelLoaded} />
+          <Skybox setSkyboxLoaded={setSkyboxLoadedState} />
+          <Model setModelLoaded={setModelLoadedState} />
         </Suspense>
-        {initialBalloonData.map((data, index) => (
-          <Balloon 
-            key={index} 
-            position={data.position} 
-            color={data.color} 
-            meshToBodyRef={meshToBodyRef}
-          />
-        ))}
-        {balloons.map((data) => (
-          <Balloon 
-            key={data.id}
-            position={data.position} 
-            color={data.color} 
-            meshToBodyRef={meshToBodyRef}
-            spawning={data.spawning}
-          />
-        ))}
+        {(modelLoadedState && skyboxLoadedState) && (
+          <>
+            {initialBalloons.map((data) => (
+              <Balloon 
+                key={data.id}
+                id={data.id}
+                position={data.position} 
+                color={data.color} 
+                meshToBodyRef={meshToBodyRef}
+                onRemove={removeBalloon}
+              />
+            ))}
+            {balloons.map((data) => (
+              <Balloon 
+                key={data.id}
+                id={data.id}
+                position={data.position} 
+                color={data.color} 
+                meshToBodyRef={meshToBodyRef}
+                spawning={data.spawning}
+                onRemove={removeBalloon}
+              />
+            ))}
+          </>
+        )}
         <RapierProvider rapierRef={rapierRef} worldRef={worldRef} />
       </Physics>
       <OrbitControls
@@ -334,9 +537,15 @@ export default function Scene({ setModelLoaded }) {
   return (
     <div style={{ 
       width: '100%',
-      height: '100%'
+      height: '100%',
     }}>
-      <Canvas shadows>
+      <Canvas 
+        shadows
+        gl={{ 
+          clearColor: '#111111',
+          alpha: false 
+        }}
+      >
         <Scene3D setModelLoaded={setModelLoaded} />
       </Canvas>
     </div>
