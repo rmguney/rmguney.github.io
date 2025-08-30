@@ -5,6 +5,14 @@ import { useGLTF, OrbitControls, PerspectiveCamera } from "@react-three/drei"
 import * as THREE from "three"
 import { useBalloons } from '../context/BalloonContext';
 
+const originalWarn = console.warn;
+console.warn = function(message) {
+  if (typeof message === 'string' && message.includes('KHR_materials_pbrSpecularGlossiness')) {
+    return;
+  }
+  originalWarn.apply(console, arguments);
+};
+
 function Model({ setModelLoaded }) {
   const group = useRef(null)
   const { scene, animations } = useGLTF("./models/model.glb", true)
@@ -20,7 +28,7 @@ function Model({ setModelLoaded }) {
           }
         }
       })
-      if (animations.length) {
+      if (animations && animations.length) {
         mixer.current = new THREE.AnimationMixer(scene)
         animations.forEach((clip) => mixer.current.clipAction(clip).play())
       }
@@ -174,7 +182,7 @@ function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }) {
       mesh.current.getWorldPosition(currentPosition)
       const distanceFromSpawn = currentPosition.distanceTo(spawnPosition.current)
       
-      if (distanceFromSpawn > 100) {
+      if (distanceFromSpawn > 200) {
         onRemove(id)
       }
     }
@@ -231,6 +239,9 @@ function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }) {
     return () => {
       if (mesh.current) {
         meshToBodyRef.current.delete(mesh.current)
+      }
+      if (rigidBodyRef.current) {
+        rigidBodyRef.current = null
       }
     }
   }, [meshToBodyRef])
@@ -414,7 +425,7 @@ function Scene3D({ setModelLoaded }) {
         const meshes = Array.from(meshToBodyRef.current.keys())
         
         meshes.forEach(mesh => {
-          if (!mesh.position) return
+          if (!mesh || !mesh.position) return
           
           const balloonWorldPos = new THREE.Vector3()
           mesh.getWorldPosition(balloonWorldPos)
@@ -425,7 +436,7 @@ function Scene3D({ setModelLoaded }) {
           if (raycasterRef.current.ray.intersectSphere(sphere, intersectionPoint)) {
             const rigidBody = meshToBodyRef.current.get(mesh)
             
-            if (rigidBody) {
+            if (rigidBody && rigidBody.isValid && rigidBody.isValid()) {
               const pushDirection = new THREE.Vector3()
               pushDirection.subVectors(balloonWorldPos, intersectionPoint)
               
@@ -443,6 +454,7 @@ function Scene3D({ setModelLoaded }) {
               
               pushDirection.y += adjustedForceAmount * 0.3
               
+              // Create new Vector3 instances to prevent aliasing
               const impulse = new rapier.Vector3(
                 pushDirection.x,
                 pushDirection.y,
@@ -457,6 +469,7 @@ function Scene3D({ setModelLoaded }) {
                 pushDirection.clone().normalize()
               )
               
+              // Create new Vector3 instance to prevent aliasing
               const torque = new rapier.Vector3(
                 torqueDirection.x * forceIntensity * 2,
                 torqueDirection.y * forceIntensity * 2,
@@ -465,7 +478,8 @@ function Scene3D({ setModelLoaded }) {
               rigidBody.applyTorqueImpulse(torque, true)
               
               if (mesh.triggerWobble) {
-                mesh.triggerWobble(intersectionPoint, pushDirection, forceIntensity, clockTimeRef.current)
+                // Clone the intersection point to prevent aliasing
+                mesh.triggerWobble(intersectionPoint.clone(), pushDirection.clone(), forceIntensity, clockTimeRef.current)
               }
             }
           }

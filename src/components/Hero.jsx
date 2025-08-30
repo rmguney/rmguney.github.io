@@ -168,8 +168,7 @@ const TextBody = () => {
             href="https://linkedin.com/in/rmguney"
             target="_blank"
             rel="noopener noreferrer"
-            className="cursor-pointer font-medium inline-block"
-            initial={{ color: "" }}
+            className="cursor-pointer font-medium inline-block text-[#0f0f0f]"
             whileHover={{ 
               scale: 1.1,
               color: "#0A66C2"
