@@ -146,7 +146,7 @@ const TextBody = () => {
       >
         <motion.h1
           variants={itemVariants}
-          className="text-5xl font-semibold text-[#0f0f0f] lg:tracking-[0.21em]"
+          className="text-4xl md:text-5xl font-semibold text-[#0f0f0f] lg:tracking-[0.21em]"
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
         >
           R. MELIH GUNEY

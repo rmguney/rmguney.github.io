@@ -42,7 +42,7 @@ export default function GameBoy() {
   const [filteredRepos, setFilteredRepos] = useState([]);
   
   const MAJOR_PROGRAMMING_LANGUAGES = [
-    'Python', 'C', 'C++', 'C#', 'Rust', 'Java', 'JavaScript', 'TypeScript',
+    'Python', 'C', 'C++', 'C#', 'Rust', 'Java', 'JavaScript',
     'Go', 'Ruby', 'R', 'Zig', 'Objective-C', 'Scala', 'Haskell', 'COBOL', 'Perl', 'Lua', 'Swift', 'Kotlin', 'PHP', 'Dart'
   ];
   
