@@ -1,7 +1,7 @@
-import { FaSpinner, FaLinkedin, FaGithub } from "react-icons/fa";
+import { FaLinkedin, FaGithub } from "react-icons/fa";
 import { motion } from "framer-motion";
 
-const Header = ({ modelLoaded }) => {
+const Header = () => {
   return (
     <nav className="absolute top-0 w-full flex justify-between items-center h-12 bg-[#111111] shadow-md z-[999] pointer-events-auto">
        <div className="flex items-center lg:w-1/4 justify-center">
@@ -55,12 +55,6 @@ const Header = ({ modelLoaded }) => {
           <FaLinkedin size={24} className="text-[#fff] hover:text-amber-100 transition-colors duration-200" />
         </motion.a>
       </div>
-      {!modelLoaded && (
-        <div className="flex items-center lg:w-1/4 justify-center text-white">
-          <FaSpinner className="animate-spin mr-2" />
-          <span className="text-white tracking-widest mr-4 lg:mr-0">Loading</span>
-        </div>
-      )}
     </nav>
   );
 };

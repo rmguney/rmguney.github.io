@@ -1,9 +1,45 @@
-import { useState, useRef, useEffect, Suspense, useMemo } from "react"
+import { useState, useRef, useEffect, Suspense, useMemo, useCallback } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Physics, RigidBody, useRapier } from "@react-three/rapier"
-import { useGLTF, OrbitControls, PerspectiveCamera } from "@react-three/drei"
+import { useGLTF, OrbitControls, PerspectiveCamera, useProgress } from "@react-three/drei"
 import * as THREE from "three"
 import { useBalloons } from '../context/BalloonContext';
+import React from 'react';
+
+// Vector3 Object Pool for performance
+class Vector3Pool {
+  constructor(initialSize = 50) {
+    this.pool = [];
+    this.active = new Set();
+    for (let i = 0; i < initialSize; i++) {
+      this.pool.push(new THREE.Vector3());
+    }
+  }
+  
+  get() {
+    const vec = this.pool.pop() || new THREE.Vector3();
+    this.active.add(vec);
+    return vec;
+  }
+  
+  release(vec) {
+    if (this.active.has(vec)) {
+      this.active.delete(vec);
+      vec.set(0, 0, 0); // Reset
+      this.pool.push(vec);
+    }
+  }
+  
+  releaseAll() {
+    this.active.forEach(vec => {
+      vec.set(0, 0, 0);
+      this.pool.push(vec);
+    });
+    this.active.clear();
+  }
+}
+
+const vector3Pool = new Vector3Pool(100);
 
 const originalWarn = console.warn;
 console.warn = function(message) {
@@ -15,14 +51,15 @@ console.warn = function(message) {
 
 function Model({ setModelLoaded }) {
   const group = useRef(null)
-  const { scene, animations } = useGLTF("./models/model.glb", true)
+  const { scene, animations } = useGLTF("./models/model.glb")
   const mixer = useRef(null)
 
   useEffect(() => {
     if (scene) {
       scene.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          child.castShadow = child.receiveShadow = true
+          child.castShadow = false  // Disabled for performance
+          child.receiveShadow = false  // Disabled for performance
           if (child.material) {
             child.material.toneMapped = false
           }
@@ -52,7 +89,7 @@ function Model({ setModelLoaded }) {
 
 function Skybox({ setSkyboxLoaded }) {
   const skyboxGroupRef = useRef()
-  const { scene } = useGLTF("./models/skybox.glb", true)
+  const { scene } = useGLTF("./models/skybox.glb")
 
   useEffect(() => {
     if (scene) {
@@ -72,18 +109,18 @@ function Skybox({ setSkyboxLoaded }) {
 
   useFrame((state) => {
     if (skyboxGroupRef.current) {
-      skyboxGroupRef.current.rotation.y = state.clock.getElapsedTime() * 0.001
+      skyboxGroupRef.current.rotation.y = ( Math.PI / 1.25 )+ state.clock.getElapsedTime() * 0.001
     }
   })
 
   return (
-    <group ref={skyboxGroupRef} position={[0, 0, 0]}>
+    <group ref={skyboxGroupRef} position={[-50, 0, 0]}>
       <primitive object={scene} />
     </group>
   )
 }
 
-function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }) {
+const Balloon = React.memo(function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }) {
   const mesh = useRef()
   const balloonMeshRef = useRef()
   const balloonGroupRef = useRef()
@@ -225,6 +262,8 @@ function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }) {
 
   useEffect(() => {
     if (mesh.current && rigidBodyRef.current) {
+      // Store balloon ID in mesh for cleanup tracking
+      mesh.current.userData = { balloonId: id };
       meshToBodyRef.current.set(mesh.current, rigidBodyRef.current)
       mesh.current.triggerWobble = triggerWobble
       
@@ -244,7 +283,7 @@ function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }) {
         rigidBodyRef.current = null
       }
     }
-  }, [meshToBodyRef])
+  }, [meshToBodyRef, id])
 
   return (
     <RigidBody 
@@ -259,9 +298,7 @@ function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }) {
     >
       <mesh 
         ref={mesh} 
-        position={position} 
-        castShadow 
-        receiveShadow
+        position={position}
       >
         <group ref={balloonGroupRef}>
           <mesh ref={balloonMeshRef}>
@@ -295,7 +332,7 @@ function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }) {
       </mesh>
     </RigidBody>
   )
-}
+});
 
 function getRandomPosition() {
   return [
@@ -319,7 +356,20 @@ function RapierProvider({ rapierRef, worldRef }) {
   return null
 }
 
-function Scene3D({ setModelLoaded }) {
+// Progress tracker component
+function ProgressTracker({ setLoadingProgress }) {
+  const { progress } = useProgress();
+  
+  useEffect(() => {
+    if (setLoadingProgress) {
+      setLoadingProgress(progress);
+    }
+  }, [progress, setLoadingProgress]);
+  
+  return null;
+}
+
+function Scene3D({ setModelLoaded, setLoadingProgress }) {
   const rapierRef = useRef(null)
   const worldRef = useRef(null)
   const meshToBodyRef = useRef(new Map())
@@ -332,11 +382,21 @@ function Scene3D({ setModelLoaded }) {
   
   const [modelLoadedState, setModelLoadedState] = useState(false)
   const [skyboxLoadedState, setSkyboxLoadedState] = useState(false)
+  const [loadSkybox, setLoadSkybox] = useState(false)
 
   useEffect(() => {
     const allLoaded = modelLoadedState && skyboxLoadedState
     setModelLoaded(allLoaded)
   }, [modelLoadedState, skyboxLoadedState, setModelLoaded])
+
+  // Lazy load skybox after model loads
+  useEffect(() => {
+    if (modelLoadedState && !loadSkybox) {
+      // Small delay to let model render first
+      const timer = setTimeout(() => setLoadSkybox(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [modelLoadedState, loadSkybox]);
 
   useFrame((state) => {
     clockTimeRef.current = state.clock.getElapsedTime()
@@ -350,13 +410,20 @@ function Scene3D({ setModelLoaded }) {
     }))
   )
 
-  const removeBalloon = (balloonId) => {
+  const removeBalloon = useCallback((balloonId) => {
+    // Clean up meshToBodyRef Map to prevent memory leak
+    meshToBodyRef.current.forEach((body, mesh) => {
+      if (mesh.userData?.balloonId === balloonId) {
+        meshToBodyRef.current.delete(mesh);
+      }
+    });
+    
     if (balloonId.startsWith('initial-')) {
       setInitialBalloons(prev => prev.filter(balloon => balloon.id !== balloonId))
     } else {
       setBalloons(prev => prev.filter(balloon => balloon.id !== balloonId))
     }
-  }
+  }, []);
 
   useEffect(() => {
     if (balloonSpawnQueue.length > 0) {
@@ -398,97 +465,131 @@ function Scene3D({ setModelLoaded }) {
   }, [camera]);
 
   useEffect(() => {
+    let rafId = null;
+    let lastEvent = null;
+    
     const handleGlobalPointerMove = (event) => {
-      const rapier = rapierRef.current
+      lastEvent = event;
       
-      if (rapier) {
-        const canvas = document.querySelector('canvas')
-        if (!canvas) return
+      // Throttle with RAF - only process one event per frame
+      if (rafId !== null) return;
+      
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
         
-        const rect = canvas.getBoundingClientRect()
+        if (!lastEvent) return;
+        const event = lastEvent;
+        lastEvent = null;
         
-        if (event.clientX < rect.left || event.clientX > rect.right ||
-            event.clientY < rect.top || event.clientY > rect.bottom) {
-          return
-        }
+        const rapier = rapierRef.current
         
-        const x = event.clientX - rect.left
-        const y = event.clientY - rect.top
-        
-        const mouse = new THREE.Vector2(
-          (x / rect.width) * 2 - 1,
-          -(y / rect.height) * 2 + 1
-        )
-        
-        raycasterRef.current.setFromCamera(mouse, camera)
-        
-        const meshes = Array.from(meshToBodyRef.current.keys())
-        
-        meshes.forEach(mesh => {
-          if (!mesh || !mesh.position) return
+        if (rapier) {
+          const canvas = document.querySelector('canvas')
+          if (!canvas) return
           
-          const balloonWorldPos = new THREE.Vector3()
-          mesh.getWorldPosition(balloonWorldPos)
+          const rect = canvas.getBoundingClientRect()
           
-          const sphere = new THREE.Sphere(balloonWorldPos, 3.0)
-          const intersectionPoint = new THREE.Vector3()
+          if (event.clientX < rect.left || event.clientX > rect.right ||
+              event.clientY < rect.top || event.clientY > rect.bottom) {
+            return
+          }
           
-          if (raycasterRef.current.ray.intersectSphere(sphere, intersectionPoint)) {
-            const rigidBody = meshToBodyRef.current.get(mesh)
+          const x = event.clientX - rect.left
+          const y = event.clientY - rect.top
+          
+          const mouse = new THREE.Vector2(
+            (x / rect.width) * 2 - 1,
+            -(y / rect.height) * 2 + 1
+          )
+          
+          raycasterRef.current.setFromCamera(mouse, camera)
+          
+          const meshes = Array.from(meshToBodyRef.current.keys())
+          
+          meshes.forEach(mesh => {
+            if (!mesh || !mesh.position) return
             
-            if (rigidBody && rigidBody.isValid && rigidBody.isValid()) {
-              const pushDirection = new THREE.Vector3()
-              pushDirection.subVectors(balloonWorldPos, intersectionPoint)
+            // Use pooled Vector3
+            const balloonWorldPos = vector3Pool.get()
+            mesh.getWorldPosition(balloonWorldPos)
+            
+            const sphere = new THREE.Sphere(balloonWorldPos, 3.0)
+            const intersectionPoint = vector3Pool.get()
+            
+            if (raycasterRef.current.ray.intersectSphere(sphere, intersectionPoint)) {
+              const rigidBody = meshToBodyRef.current.get(mesh)
               
-              if (pushDirection.length() < 0.1) {
-                pushDirection.copy(raycasterRef.current.ray.direction)
-                pushDirection.negate()
-              }
-              
-              const distanceFromCenter = intersectionPoint.distanceTo(balloonWorldPos)
-              const forceIntensity = Math.max(0.3, 1 - distanceFromCenter / 3.0)
-              
-              pushDirection.normalize()
-              const adjustedForceAmount = forceAmount * forceIntensity
-              pushDirection.multiplyScalar(adjustedForceAmount)
-              
-              pushDirection.y += adjustedForceAmount * 0.3
-              
-              // Create new Vector3 instances to prevent aliasing
-              const impulse = new rapier.Vector3(
-                pushDirection.x,
-                pushDirection.y,
-                pushDirection.z
-              )
-              
-              rigidBody.applyImpulse(impulse, true)
-              
-              const torqueDirection = new THREE.Vector3()
-              torqueDirection.crossVectors(
-                intersectionPoint.clone().sub(balloonWorldPos),
-                pushDirection.clone().normalize()
-              )
-              
-              // Create new Vector3 instance to prevent aliasing
-              const torque = new rapier.Vector3(
-                torqueDirection.x * forceIntensity * 2,
-                torqueDirection.y * forceIntensity * 2,
-                torqueDirection.z * forceIntensity * 2
-              )
-              rigidBody.applyTorqueImpulse(torque, true)
-              
-              if (mesh.triggerWobble) {
-                // Clone the intersection point to prevent aliasing
-                mesh.triggerWobble(intersectionPoint.clone(), pushDirection.clone(), forceIntensity, clockTimeRef.current)
+              if (rigidBody && rigidBody.isValid && rigidBody.isValid()) {
+                const pushDirection = vector3Pool.get()
+                pushDirection.subVectors(balloonWorldPos, intersectionPoint)
+                
+                if (pushDirection.length() < 0.1) {
+                  pushDirection.copy(raycasterRef.current.ray.direction)
+                  pushDirection.negate()
+                }
+                
+                const distanceFromCenter = intersectionPoint.distanceTo(balloonWorldPos)
+                const forceIntensity = Math.max(0.3, 1 - distanceFromCenter / 3.0)
+                
+                pushDirection.normalize()
+                const adjustedForceAmount = forceAmount * forceIntensity
+                pushDirection.multiplyScalar(adjustedForceAmount)
+                
+                pushDirection.y += adjustedForceAmount * 0.3
+                
+                const impulse = new rapier.Vector3(
+                  pushDirection.x,
+                  pushDirection.y,
+                  pushDirection.z
+                )
+                
+                rigidBody.applyImpulse(impulse, true)
+                
+                const torqueDirection = vector3Pool.get()
+                const tempVec1 = vector3Pool.get()
+                const tempVec2 = vector3Pool.get()
+                
+                tempVec1.copy(intersectionPoint).sub(balloonWorldPos)
+                tempVec2.copy(pushDirection).normalize()
+                torqueDirection.crossVectors(tempVec1, tempVec2)
+                
+                const torque = new rapier.Vector3(
+                  torqueDirection.x * forceIntensity * 2,
+                  torqueDirection.y * forceIntensity * 2,
+                  torqueDirection.z * forceIntensity * 2
+                )
+                rigidBody.applyTorqueImpulse(torque, true)
+                
+                if (mesh.triggerWobble) {
+                  // Clone for wobble but release originals
+                  const wobblePoint = intersectionPoint.clone()
+                  const wobbleDir = pushDirection.clone()
+                  mesh.triggerWobble(wobblePoint, wobbleDir, forceIntensity, clockTimeRef.current)
+                }
+                
+                // Release pooled vectors
+                vector3Pool.release(torqueDirection)
+                vector3Pool.release(tempVec1)
+                vector3Pool.release(tempVec2)
+                vector3Pool.release(pushDirection)
               }
             }
-          }
-        })
-      }
+            
+            // Release pooled vectors
+            vector3Pool.release(balloonWorldPos)
+            vector3Pool.release(intersectionPoint)
+          })
+        }
+      });
     }
 
     window.addEventListener('pointermove', handleGlobalPointerMove)
-    return () => window.removeEventListener('pointermove', handleGlobalPointerMove)
+    return () => {
+      window.removeEventListener('pointermove', handleGlobalPointerMove)
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
+    }
   }, [camera, forceAmount])
 
   return (
@@ -506,8 +607,9 @@ function Scene3D({ setModelLoaded }) {
       />
       <Physics>
         <Suspense>
-          <Skybox setSkyboxLoaded={setSkyboxLoadedState} />
+          <ProgressTracker setLoadingProgress={setLoadingProgress} />
           <Model setModelLoaded={setModelLoadedState} />
+          {loadSkybox && <Skybox setSkyboxLoaded={setSkyboxLoadedState} />}
         </Suspense>
         {(modelLoadedState && skyboxLoadedState) && (
           <>
@@ -547,7 +649,7 @@ function Scene3D({ setModelLoaded }) {
   )
 }
 
-export default function Scene({ setModelLoaded }) {
+export default function Scene({ setModelLoaded, setLoadingProgress }) {
   return (
     <div style={{ 
       width: '100%',
@@ -560,7 +662,7 @@ export default function Scene({ setModelLoaded }) {
           alpha: false 
         }}
       >
-        <Scene3D setModelLoaded={setModelLoaded} />
+        <Scene3D setModelLoaded={setModelLoaded} setLoadingProgress={setLoadingProgress} />
       </Canvas>
     </div>
   )

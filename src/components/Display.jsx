@@ -6,11 +6,12 @@ import { motion, useInView, AnimatePresence } from "framer-motion";
 import Pattern from './Pattern'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import React from 'react';
 
 const REPOS_PER_PAGE = 4;
 const REPOS_PER_PAGE_MOBILE = 2;
 
-export default function GameBoy() {
+const GameBoy = React.memo(function GameBoy() {
   useEffect(() => {
     const originalConsoleError = console.error;
     console.error = (...args) => {
@@ -232,7 +233,51 @@ export default function GameBoy() {
     if (!languages || Object.keys(languages).length === 0) return 0;
     return Object.values(languages).reduce((sum, bytes) => sum + bytes, 0);
   };
+  
+  // Helper function to check for changes in repo metadata
+  const checkForChanges = (oldMetadata, newMetadata) => {
+    const details = {
+      newRepos: [],
+      updatedRepos: [],
+      deletedRepos: []
+    };
+    
+    // Create maps for easy lookup
+    const oldMap = new Map(oldMetadata.map(r => [r.id, r]));
+    const newMap = new Map(newMetadata.map(r => [r.id, r]));
+    
+    // Check for new and updated repos
+    for (const newRepo of newMetadata) {
+      const oldRepo = oldMap.get(newRepo.id);
+      if (!oldRepo) {
+        details.newRepos.push(newRepo.name);
+      } else if (
+        newRepo.updated_at !== oldRepo.updated_at || 
+        newRepo.pushed_at !== oldRepo.pushed_at
+      ) {
+        details.updatedRepos.push(newRepo.name);
+      }
+    }
+    
+    // Check for deleted repos
+    for (const oldRepo of oldMetadata) {
+      if (!newMap.has(oldRepo.id)) {
+        details.deletedRepos.push(oldRepo.name);
+      }
+    }
+    
+    const changed = details.newRepos.length > 0 || 
+                   details.updatedRepos.length > 0 || 
+                   details.deletedRepos.length > 0;
+    
+    return { changed, details };
+  };
+  
   useEffect(() => {
+    const CACHE_KEY = 'github_repos_cache';
+    const CACHE_TTL = 60 * 60 * 1000; // 1h
+    const METADATA_KEY = 'github_repos_metadata';
+    
     const fetchRepos = async () => {
       try {
         setLoading(true);
@@ -244,6 +289,56 @@ export default function GameBoy() {
         } : {
           'Accept': 'application/vnd.github.v3+json'
         };
+        
+        // STEP 1: Always fetch lightweight metadata to check for updates
+        const metadataResponse = await fetch('https://api.github.com/users/rmguney/repos?per_page=50', { headers });
+        
+        if (!metadataResponse.ok) {
+          throw new Error(`GitHub API error: ${metadataResponse.status}`);
+        }
+        
+        const metadataRepos = await metadataResponse.json();
+        
+        // Extract minimal metadata for comparison
+        const currentMetadata = metadataRepos
+          .filter(repo => !repo.fork)
+          .map(repo => ({
+            id: repo.id,
+            name: repo.name,
+            updated_at: repo.updated_at,
+            pushed_at: repo.pushed_at
+          }));
+        
+        // STEP 2: Check if we have cached data
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        const cachedMetadata = localStorage.getItem(METADATA_KEY);
+        
+        if (cachedData && cachedMetadata) {
+          try {
+            const { repos: cachedRepos, timestamp } = JSON.parse(cachedData);
+            const oldMetadata = JSON.parse(cachedMetadata);
+            
+            // Compare metadata to see if anything changed
+            const hasChanges = checkForChanges(oldMetadata, currentMetadata);
+            
+            if (!hasChanges.changed) {
+              const age = Date.now() - timestamp;
+              setAllRepos(cachedRepos);
+              setTotalPages(Math.ceil(cachedRepos.length / REPOS_PER_PAGE));
+              setError(null);
+              setLoading(false);
+              return;
+            } else {
+              // If only specific repos changed, we could optimize here
+              // For now, we'll do a full refresh when changes are detected
+            }
+          } catch (e) {
+            localStorage.removeItem(CACHE_KEY);
+            localStorage.removeItem(METADATA_KEY);
+          }
+        }
+        
+        // STEP 3: Fetch full data (either no cache, or changes detected)
         
         const pinnedRepos = new Set();
         if (token) {
@@ -282,7 +377,7 @@ export default function GameBoy() {
               }
             }
           } catch (graphqlError) {
-            console.error('Error fetching pinned repos:', graphqlError);
+            // Error fetching pinned repos
           }
         }
         
@@ -350,7 +445,7 @@ export default function GameBoy() {
                 }
               }
             } catch (watchersErr) {
-              console.error(`Error fetching watchers for ${repo.name}:`, watchersErr);
+              // Error fetching watchers
             }
 
             try {
@@ -361,10 +456,10 @@ export default function GameBoy() {
                 repo.stars = Array.isArray(stargazersData) ? stargazersData.length : repo.stars;
               }
             } catch (stargazersErr) {
-              console.error(`Error fetching stargazers for ${repo.name}:`, stargazersErr);
+              // Error fetching stargazers
             }
           } catch (err) {
-            console.error(`Error fetching data for ${repo.name}:`, err);
+            // Error fetching repo data
           }
         }
         ));
@@ -391,9 +486,23 @@ export default function GameBoy() {
         setAllRepos(processedRepos);
         setTotalPages(Math.ceil(processedRepos.length / REPOS_PER_PAGE));
         
+        // Cache the processed repos AND metadata
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            repos: processedRepos,
+            timestamp: Date.now()
+          }));
+          localStorage.setItem(METADATA_KEY, JSON.stringify(currentMetadata));
+        } catch (e) {
+          // If quota exceeded, clear old cache and try again
+          if (e.name === 'QuotaExceededError') {
+            localStorage.removeItem(CACHE_KEY);
+            localStorage.removeItem(METADATA_KEY);
+          }
+        }
+        
         setError(null);
       } catch (err) {
-        console.error ("Error fetching GitHub repositories:", err);
         setError(err.message || "An error occurred");
         setAllRepos([]);
         setDisplayedRepos([]);
@@ -406,6 +515,9 @@ export default function GameBoy() {
   }, []);
 
   useEffect(() => {
+    const README_CACHE_PREFIX = 'readme_cache_';
+    const README_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+    
     const fetchReadme = async () => {
       if (activeIndex === null || (!displayedRepos[activeIndex]?.isGithubPage && !displayedRepos[activeIndex]?.isPortfolio)) {
         setReadmeContent('');
@@ -418,6 +530,26 @@ export default function GameBoy() {
         const urlParts = repoUrl.split('/');
         const owner = urlParts[urlParts.length - 2];
         const repo = urlParts[urlParts.length - 1];
+        
+        const cacheKey = `${README_CACHE_PREFIX}${owner}_${repo}`;
+        
+        // Try cache first
+        const cachedReadme = localStorage.getItem(cacheKey);
+        if (cachedReadme) {
+          try {
+            const { content, timestamp } = JSON.parse(cachedReadme);
+            const age = Date.now() - timestamp;
+            
+            if (age < README_CACHE_TTL) {
+              setReadmeContent(content);
+              setReadmeLoading(false);
+              return;
+            }
+          } catch (e) {
+            localStorage.removeItem(cacheKey);
+          }
+        }
+        
         const token = process.env.NEXT_PUBLIC_HUB_TOKEN || process.env.HUB_TOKEN;
         const headers = token ? { 
           'Authorization': `token ${token}`,
@@ -446,11 +578,18 @@ export default function GameBoy() {
         }
         const content = new TextDecoder('utf-8').decode(bytes);
         
+        // Cache the README
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            content,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          // Error saving README to cache
+        }
+        
         setReadmeContent(content);
       } catch (err) {
-        if (!err.message.includes('404')) {
-          console.error("Error fetching README:", err);
-        }
         setReadmeContent("*No README content available.*");
       } finally {
         setReadmeLoading(false);
@@ -502,7 +641,7 @@ export default function GameBoy() {
         const handleIframeLoad = () => {
           try {
           } catch (error) {
-            console.error('Error manipulating iframe:', error)
+            // Error manipulating iframe
           }
         }
 
@@ -555,7 +694,7 @@ export default function GameBoy() {
         }
       }
     } catch (error) {
-      console.error('Error in handleDPadClick:', error);
+      // Error in handleDPadClick
     }
   };
 
@@ -571,7 +710,7 @@ export default function GameBoy() {
     try {
       window.open(displayedRepos[activeIndex].url, '_blank', 'noopener,noreferrer');
     } catch (error) {
-      console.error('Error opening website:', error);
+      // Error opening website
     }
   };
 
@@ -587,7 +726,7 @@ export default function GameBoy() {
     try {
       window.open(displayedRepos[activeIndex].githubUrl, '_blank', 'noopener,noreferrer');
     } catch (error) {
-      console.error('Error opening GitHub:', error);
+      // Error opening GitHub
     }
   };
 
@@ -1464,4 +1603,6 @@ export default function GameBoy() {
       </div>
     </div>
   )
-}
+});
+
+export default GameBoy;

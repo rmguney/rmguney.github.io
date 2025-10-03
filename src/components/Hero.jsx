@@ -1,8 +1,9 @@
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
 import { useBalloons } from "../context/BalloonContext";
+import React from "react";
 
-const TextBody = () => {
+const TextBody = React.memo(function TextBody() {
   const { spawnBalloons } = useBalloons();
   const ref = useRef(null);
   const isInView = useInView(ref, {
@@ -31,68 +32,33 @@ const TextBody = () => {
 
   const techIcons = [
     {
+      img: "/certs/fsmvu.png",
+      name: "BArch",
+      description: "FSMVU, Feb 2018",
+      sceneColor: "#f0afb5",
+      balloonOptions: { count: 10, speed: 1.5, rotation: true },
+    },
+    {
       img: "/certs/boun.png",
       name: "MSc SWE",
       description: "Bogazici, Jun 2025",
       sceneColor: "#a6e1f7",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
+      balloonOptions: { count: 10, speed: 1.5, rotation: true },
     },
     {
-      img: "/certs/mfun.png",
-      name: "Att&ck Fundamentals",
-      description: "MITRE MAD20, Apr 2025",
-      sceneColor: "#b3b3b3",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    },
-    {
-      img: "/certs/msoca.png",
-      name: "SOC Assessment",
-      description: "MITRE MAD20, May 2025",
-      sceneColor: "#b5fab4",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    },
-    {
-      img: "/certs/mcti.png",
-      name: "Cyber Threat Intelligence",
-      description: "MITRE MAD20, Jun 2025",
-      sceneColor: "#f5e898",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    },
-    {
-      img: "/certs/mptm.png",
-      name: "Purple Teaming Methodology",
-      description: "MITRE MAD20, Jul 2025",
-      sceneColor: "#d4bbfa",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    },
-    {
-      img: "/certs/mthde.png",
-      name: "Threat Hunting and Detection Engineering",
-      description: "MITRE MAD20, Aug 2025",
-      sceneColor: "#b2c9f7",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    },
-    {
-      img: "/certs/maem.png",
-      name: "Adversary Emulation Methodology",
-      description: "MITRE MAD20, Sep 2025",
-      sceneColor: "#f58282",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    },
-/*     {
-      img: "/certs/matde.png",
-      name: "Access Token Detection Engineering",
+      img: "/certs/mad.png",
+      name: "Certified MITRE ATT&CK Defender",
       description: "MITRE MAD20, Oct 2025",
-      sceneColor: "#969090",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    }, */
-/*     {
-      img: "/certs/cbbh.webp",
+      sceneColor: "#a58bd9",
+      balloonOptions: { count: 10, speed: 1.5, rotation: true },
+    },
+    {
+      img: "/certs/cbbh.png",
       name: "Certified Bug Bounty Hunter",
       description: "Hack the Box, In progress",
-      sceneColor: "#676882",
-      balloonOptions: { count: 20, speed: 1.5, rotation: true },
-    }, */
+      sceneColor: "#95b4fc",
+      balloonOptions: { count: 10, speed: 1.5, rotation: true },
+    },
 
   ];
 
@@ -232,6 +198,6 @@ const TextBody = () => {
       </motion.div>
     </div>
   );
-};
+});
 
 export default TextBody;
