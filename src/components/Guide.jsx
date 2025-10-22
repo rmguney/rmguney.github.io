@@ -2,8 +2,60 @@ import { PiMouseLeftClickFill } from "react-icons/pi";
 import { RiDragMove2Line } from "react-icons/ri";
 import { FiPlus } from "react-icons/fi";
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
 const Guide = () => {
+  const [hoveredIcons, setHoveredIcons] = useState({
+    click: false,
+    plus: false,
+    drag: false
+  });
+
+  const balloonColors = ["#fdaea4", "#67e8f9", "#fef08a"];
+  
+  const [iconColors, setIconColors] = useState({
+    click: balloonColors[0],
+    plus: balloonColors[1],
+    drag: balloonColors[2]
+  });
+
+  useEffect(() => {
+    const intervals = {
+      click: setInterval(() => {
+        if (!hoveredIcons.click) {
+          setIconColors(prev => ({
+            ...prev,
+            click: balloonColors[Math.floor(Math.random() * balloonColors.length)]
+          }));
+        }
+      }, 800),
+      plus: setInterval(() => {
+        if (!hoveredIcons.plus) {
+          setIconColors(prev => ({
+            ...prev,
+            plus: balloonColors[Math.floor(Math.random() * balloonColors.length)]
+          }));
+        }
+      }, 800),
+      drag: setInterval(() => {
+        if (!hoveredIcons.drag) {
+          setIconColors(prev => ({
+            ...prev,
+            drag: balloonColors[Math.floor(Math.random() * balloonColors.length)]
+          }));
+        }
+      }, 800)
+    };
+
+    return () => {
+      Object.values(intervals).forEach(clearInterval);
+    };
+  }, [hoveredIcons]);
+
+  const handleHover = (iconName) => {
+    setHoveredIcons(prev => ({ ...prev, [iconName]: true }));
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -14,7 +66,22 @@ const Guide = () => {
       <motion.div 
         className="relative group"
         whileHover={{ scale: 1.1 }}
-        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+        onHoverStart={() => handleHover('click')}
+        animate={!hoveredIcons.click ? {
+          scale: [1, 1.2, 1],
+          rotate: [0, -5, 5, 0],
+        } : { scale: 1, rotate: 0 }}
+        style={{
+          filter: !hoveredIcons.click 
+            ? `drop-shadow(0 0 20px ${iconColors.click}) drop-shadow(0 0 12px ${iconColors.click}) drop-shadow(0 0 6px ${iconColors.click}) brightness(1.6)`
+            : 'none',
+          transition: 'filter 0.6s ease-in-out'
+        }}
+        transition={!hoveredIcons.click ? {
+          duration: 1.6,
+          repeat: Infinity,
+          ease: "easeInOut"
+        } : { type: "spring", stiffness: 400, damping: 10 }}
       >
         <PiMouseLeftClickFill 
           size={25} 
@@ -30,7 +97,23 @@ const Guide = () => {
       <motion.div 
         className="relative group"
         whileHover={{ scale: 1.1 }}
-        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+        onHoverStart={() => handleHover('plus')}
+        animate={!hoveredIcons.plus ? {
+          scale: [1, 1.2, 1],
+          rotate: [0, -5, 5, 0],
+        } : { scale: 1, rotate: 0 }}
+        style={{
+          filter: !hoveredIcons.plus 
+            ? `drop-shadow(0 0 20px ${iconColors.plus}) drop-shadow(0 0 12px ${iconColors.plus}) drop-shadow(0 0 6px ${iconColors.plus}) brightness(1.6)`
+            : 'none',
+          transition: 'filter 0.6s ease-in-out'
+        }}
+        transition={!hoveredIcons.plus ? {
+          duration: 1.6,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 0.4
+        } : { type: "spring", stiffness: 400, damping: 10 }}
       >
         <FiPlus 
           size={15} 
@@ -46,7 +129,23 @@ const Guide = () => {
       <motion.div 
         className="relative group"
         whileHover={{ scale: 1.1 }}
-        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+        onHoverStart={() => handleHover('drag')}
+        animate={!hoveredIcons.drag ? {
+          scale: [1, 1.2, 1],
+          rotate: [0, -5, 5, 0],
+        } : { scale: 1, rotate: 0 }}
+        style={{
+          filter: !hoveredIcons.drag 
+            ? `drop-shadow(0 0 20px ${iconColors.drag}) drop-shadow(0 0 12px ${iconColors.drag}) drop-shadow(0 0 6px ${iconColors.drag}) brightness(1.6)`
+            : 'none',
+          transition: 'filter 0.6s ease-in-out'
+        }}
+        transition={!hoveredIcons.drag ? {
+          duration: 1.6,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 0.8
+        } : { type: "spring", stiffness: 400, damping: 10 }}
       >
         <RiDragMove2Line 
           size={25} 

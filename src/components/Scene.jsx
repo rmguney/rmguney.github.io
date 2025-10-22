@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, Suspense, useMemo, useCallback } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Physics, RigidBody, useRapier } from "@react-three/rapier"
-import { useGLTF, OrbitControls, PerspectiveCamera, useProgress } from "@react-three/drei"
+import { useGLTF, OrbitControls, PerspectiveCamera } from "@react-three/drei"
 import * as THREE from "three"
 import { useBalloons } from '../context/BalloonContext';
 import React from 'react';
@@ -356,20 +356,7 @@ function RapierProvider({ rapierRef, worldRef }) {
   return null
 }
 
-// Progress tracker component
-function ProgressTracker({ setLoadingProgress }) {
-  const { progress } = useProgress();
-  
-  useEffect(() => {
-    if (setLoadingProgress) {
-      setLoadingProgress(progress);
-    }
-  }, [progress, setLoadingProgress]);
-  
-  return null;
-}
-
-function Scene3D({ setModelLoaded, setLoadingProgress }) {
+function Scene3D({ setModelLoaded }) {
   const rapierRef = useRef(null)
   const worldRef = useRef(null)
   const meshToBodyRef = useRef(new Map())
@@ -607,7 +594,6 @@ function Scene3D({ setModelLoaded, setLoadingProgress }) {
       />
       <Physics>
         <Suspense>
-          <ProgressTracker setLoadingProgress={setLoadingProgress} />
           <Model setModelLoaded={setModelLoadedState} />
           {loadSkybox && <Skybox setSkyboxLoaded={setSkyboxLoadedState} />}
         </Suspense>
@@ -649,7 +635,7 @@ function Scene3D({ setModelLoaded, setLoadingProgress }) {
   )
 }
 
-export default function Scene({ setModelLoaded, setLoadingProgress }) {
+export default function Scene({ setModelLoaded }) {
   return (
     <div style={{ 
       width: '100%',
@@ -662,7 +648,7 @@ export default function Scene({ setModelLoaded, setLoadingProgress }) {
           alpha: false 
         }}
       >
-        <Scene3D setModelLoaded={setModelLoaded} setLoadingProgress={setLoadingProgress} />
+  <Scene3D setModelLoaded={setModelLoaded} />
       </Canvas>
     </div>
   )

@@ -11,6 +11,105 @@ import React from 'react';
 const REPOS_PER_PAGE = 4;
 const REPOS_PER_PAGE_MOBILE = 2;
 
+const LANGUAGE_CONFIG = {
+  groups: {
+    "JavaScript": ["JavaScript", "TypeScript", "Svelte", "Vue"],
+    "C/C++": ["C", "C++", "HLSL", "GLSL", "WGSL", "ShaderLab"]
+  },
+  
+  filterLanguages: [
+    'JavaScript', 'C/C++', 'C#', 'Rust', 'Java', 'Python', 'Assembly'
+  ],
+  
+  colors: {
+    'JavaScript': '#f1e05a',
+    'TypeScript': '#3178c6',
+    'Python': '#3572A5',
+    'Rust': '#dea584',
+    'Java': '#b07219',
+    'C#': '#178600',
+    'C++': '#f34b7d',
+    'C': '#555555',
+    'C/C++': '#555555',
+    'HLSL': '#aace60',
+    'GLSL': '#5686a5',
+    'WGSL': '#1a5e9a',
+    'ShaderLab': '#222c37',
+    'Assembly': '#6E4C13',
+    'WebAssembly': '#04133b',
+    'Svelte': '#ff3e00',
+    'Vue': '#41b883',
+    'ASP.NET': '#9400ff',
+    'HTML': '#e34c26',
+    'CSS': '#563d7c',
+    'SCSS': '#c6538c',
+    'Shell': '#89e051',
+    'PowerShell': '#012456',
+    'Batchfile': '#C1F12E',
+    'Dockerfile': '#384d54',
+    'Makefile': '#427819',
+    'CMake': '#DA3434',
+    'Jupyter Notebook': '#DA5B0B',
+  }
+};
+
+const LanguageUtils = {
+  _groupLookup: (() => {
+    const lookup = {};
+    Object.entries(LANGUAGE_CONFIG.groups).forEach(([groupName, languages]) => {
+      languages.forEach(lang => {
+        lookup[lang] = groupName;
+      });
+    });
+    return lookup;
+  })(),
+  
+  getDisplayName(language) {
+    return this._groupLookup[language] || language;
+  },
+  
+  getColor(language) {
+    return LANGUAGE_CONFIG.colors[language] || '#fff';
+  },
+  
+  calculateStats(repos) {
+    const languages = {};
+    let totalBytes = 0;
+
+    repos.forEach(repo => {
+      if (repo.languages) {
+        Object.entries(repo.languages).forEach(([language, bytes]) => {
+          const displayName = this.getDisplayName(language);
+          languages[displayName] = (languages[displayName] || 0) + bytes;
+          totalBytes += bytes;
+        });
+      }
+    });
+
+    return Object.entries(languages)
+      .map(([language, bytes]) => ({
+        name: language,
+        bytes,
+        percentage: Math.round((bytes / totalBytes) * 100)
+      }))
+      .sort((a, b) => b.bytes - a.bytes);
+  },
+  
+  repoMatchesLanguage(repo, selectedLanguage) {
+    if (!repo.languages) return false;
+    
+    const groupLanguages = LANGUAGE_CONFIG.groups[selectedLanguage];
+    if (groupLanguages) {
+      return groupLanguages.some(lang => repo.languages[lang]);
+    }
+    
+    return repo.languages[selectedLanguage] || 
+           Object.keys(repo.languages).some(lang => 
+             this.getDisplayName(lang) === selectedLanguage
+           );
+  }
+};
+
 const GameBoy = React.memo(function GameBoy() {
   useEffect(() => {
     const originalConsoleError = console.error;
@@ -41,11 +140,6 @@ const GameBoy = React.memo(function GameBoy() {
   const [allLanguageStats, setAllLanguageStats] = useState([]);
   const [selectedLanguage, setSelectedLanguage] = useState(null);
   const [filteredRepos, setFilteredRepos] = useState([]);
-  
-  const MAJOR_PROGRAMMING_LANGUAGES = [
-    'Python', 'C', 'C++', 'C#', 'Rust', 'Java', 'JavaScript',
-    'Go', 'Ruby', 'R', 'Zig', 'Objective-C', 'Scala', 'Haskell', 'COBOL', 'Perl', 'Lua', 'Swift', 'Kotlin', 'PHP', 'Dart'
-  ];
   
   const iframeRef = useRef(null)
   const textRef = useRef(null);
@@ -103,43 +197,9 @@ const GameBoy = React.memo(function GameBoy() {
     };
   }, []);
 
-  const LANGUAGE_GROUPS = {
-    "JavaScript": ["HTML", "Vue", "Svelte", "TypeScript"],
-  };
-
-  const LANGUAGE_GROUP_LOOKUP = {};
-  Object.entries(LANGUAGE_GROUPS).forEach(([main, aliases]) => {
-    aliases.forEach(alias => {
-      LANGUAGE_GROUP_LOOKUP[alias] = main;
-    });
-  });
-
-  const calculateLanguageStats = (repos) => {
-    const languages = {};
-    let totalBytes = 0;
-
-    repos.forEach(repo => {
-      if (repo.languages) {
-        Object.entries(repo.languages).forEach(([language, bytes]) => {
-          const langKey = LANGUAGE_GROUP_LOOKUP[language] || language;
-          languages[langKey] = (languages[langKey] || 0) + bytes;
-          totalBytes += bytes;
-        });
-      }
-    });
-
-    const languageStats = Object.entries(languages).map(([language, bytes]) => ({
-      name: language,
-      bytes,
-      percentage: Math.round((bytes / totalBytes) * 100)
-    })).sort((a, b) => b.bytes - a.bytes);
-
-    return languageStats;
-  };
-
   useEffect(() => {
     if (allRepos.length > 0) {
-      const stats = calculateLanguageStats(allRepos);
+      const stats = LanguageUtils.calculateStats(allRepos);
       setAllLanguageStats(stats);
     }
   }, [allRepos]);
@@ -147,7 +207,7 @@ const GameBoy = React.memo(function GameBoy() {
   useEffect(() => {
     if (selectedLanguage) {
       const filtered = allRepos.filter(repo => 
-        repo.languages && repo.languages[selectedLanguage]
+        LanguageUtils.repoMatchesLanguage(repo, selectedLanguage)
       );
       setFilteredRepos(filtered);
       const reposPerPage = isSmallScreen ? REPOS_PER_PAGE_MOBILE : REPOS_PER_PAGE;
@@ -812,51 +872,6 @@ const GameBoy = React.memo(function GameBoy() {
       .join(' ');
   }
 
-  const getLanguageColor = (language) => {
-    const colors = {
-      'JavaScript': '#f1e05a',
-      'TypeScript': '#3178c6',
-      'Python': '#3572A5',
-      'Java': '#b07219',
-      'C#': '#178600',
-      'C++': '#f34b7d',
-      'C': '#555555',
-      'Rust': '#dea584',
-      'Go': '#00ADD8',
-      'Ruby': '#701516',
-      'R': '#198CE7',
-      'Zig': '#ec915c',
-      'Objective-C': '#438eff',
-      'Scala': '#c22d40',
-      'Haskell': '#5e5086',
-      'COBOL': '#00afcd',
-      'Perl': '#0298c3',
-      'Lua': '#000080',
-      'Swift': '#fa7343',
-      'Kotlin': '#A97BFF',
-      'PHP': '#4F5D95',
-      'Dart': '#00B4AB',
-      'HTML': '#e34c26',
-      'CSS': '#563d7c',
-      'Jupyter Notebook': '#DA5B0B',
-      'Shell': '#89e051',
-      'PowerShell': '#012456',
-      'ASP.NET': '#9400ff',
-      'ShaderLab': '#222c37',
-      'HLSL': '#aace60',
-      'Svelte': '#ff3e00',
-      'Vue': '#41b883',
-      'SCSS': '#c6538c',
-      'Dockerfile': '#384d54',
-      'CMake': '#DA3434',
-      'Assembly': '#6E4C13',
-      'Batchfile': '#C1F12E',
-      'Makefile': '#427819',
-    };
-    
-    return colors[language] || '#8b949e';
-  };
-
   const renderBadges = (languages, hasWebsite, isPortfolio) => {
     const websiteBadge = hasWebsite ? (
       <div className="w-full flex justify-center mb-0.5">
@@ -904,7 +919,7 @@ const GameBoy = React.memo(function GameBoy() {
         languageBadges = (
           <div className="w-full flex flex-wrap justify-center gap-[1px] mb-0.5">
             {displayLanguages.map(({ lang, percentage }) => {
-              const color = getLanguageColor(lang);
+              const color = LanguageUtils.getColor(lang);
               return (
                 <div 
                   key={lang}
@@ -1258,10 +1273,10 @@ const GameBoy = React.memo(function GameBoy() {
                 className="mt-4 lg:mt-2 w-full relative"
               >
                 <div 
-                  className="flex items-center justify-center flex-wrap gap-2 py-1 px-1 lg:justify-start"
+                  className="flex items-center justify-center flex-wrap gap-2 px-4 md:px-1 lg:justify-start"
                 >
                   {allLanguageStats
-                    .filter(lang => MAJOR_PROGRAMMING_LANGUAGES.includes(lang.name))
+                    .filter(lang => LANGUAGE_CONFIG.filterLanguages.includes(lang.name))
                     .slice(0, 8)
                     .map(lang => (
                       <button
@@ -1274,7 +1289,7 @@ const GameBoy = React.memo(function GameBoy() {
                       >
                         <span 
                           className="inline-block w-2 h-2 rounded-full mr-1.5"
-                          style={{ backgroundColor: getLanguageColor(lang.name) }}
+                          style={{ backgroundColor: LanguageUtils.getColor(lang.name) }}
                         ></span>
                         <span>{lang.name}</span>
                         <span className="ml-1.5 text-white/50">{lang.percentage}%</span>

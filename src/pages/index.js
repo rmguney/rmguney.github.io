@@ -15,7 +15,6 @@ import MobileDivider from "../components/MobileDivider"
 
 export default function HomePage() {
   const [modelLoaded, setModelLoaded] = useState(false)
-  const [loadingProgress, setLoadingProgress] = useState(0)
   
   return (
     <BalloonProvider>
@@ -29,9 +28,9 @@ export default function HomePage() {
       <main>
         <section className="w-full h-screen relative" style={{background: "linear-gradient(to bottom right, #fff 40%, #fff 75%)"}}>
           <Header />
-          <Guide />
-          <Scene setModelLoaded={setModelLoaded} setLoadingProgress={setLoadingProgress} className="w-full h-full"/>
-          {!modelLoaded ? <Loading progress={loadingProgress} /> : <Hero />}
+          {modelLoaded && <Guide />}
+          <Scene setModelLoaded={setModelLoaded} className="w-full h-full"/>
+          {!modelLoaded ? <Loading /> : <Hero />}
           <MobileDivider />
           <Divider />
           <Suspense fallback={<div className="min-h-screen" />}>

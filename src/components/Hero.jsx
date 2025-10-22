@@ -1,11 +1,15 @@
 import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useBalloons } from "../context/BalloonContext";
 import React from "react";
+import { FaArrowLeftLong } from "react-icons/fa6";
 
 const TextBody = React.memo(function TextBody() {
   const { spawnBalloons } = useBalloons();
   const ref = useRef(null);
+  const [isHoveringCredential, setIsHoveringCredential] = useState(false);
+  const [showArrow, setShowArrow] = useState(false);
+  const timeoutRef = useRef(null);
   const isInView = useInView(ref, {
     once: false,
     amount: 0.4,
@@ -30,7 +34,7 @@ const TextBody = React.memo(function TextBody() {
     },
   };
 
-  const techIcons = [
+  const credentials = [
     {
       img: "/certs/fsmvu.png",
       name: "BArch",
@@ -46,20 +50,54 @@ const TextBody = React.memo(function TextBody() {
       balloonOptions: { count: 10, speed: 1.5, rotation: true },
     },
     {
-      img: "/certs/mad.png",
-      name: "Certified MITRE ATT&CK Defender",
-      description: "MITRE MAD20, Oct 2025",
-      sceneColor: "#a58bd9",
+      img: "/certs/mfun.png",
+      name: "Att&ck Fundamentals",
+      description: "MITRE MAD20, Apr 2025",
+      sceneColor: "#b3b3b3",
       balloonOptions: { count: 10, speed: 1.5, rotation: true },
     },
     {
-      img: "/certs/cbbh.png",
-      name: "Certified Bug Bounty Hunter",
-      description: "Hack the Box, In progress",
-      sceneColor: "#95b4fc",
+      img: "/certs/msoca.png",
+      name: "SOC Assessment",
+      description: "MITRE MAD20, May 2025",
+      sceneColor: "#b5fab4",
       balloonOptions: { count: 10, speed: 1.5, rotation: true },
     },
-
+    {
+      img: "/certs/mcti.png",
+      name: "Cyber Threat Intelligence",
+      description: "MITRE MAD20, Jun 2025",
+      sceneColor: "#f5e898",
+      balloonOptions: { count: 10, speed: 1.5, rotation: true },
+    },
+    {
+      img: "/certs/mptm.png",
+      name: "Purple Teaming Methodology",
+      description: "MITRE MAD20, Jul 2025",
+      sceneColor: "#d4bbfa",
+      balloonOptions: { count: 10, speed: 1.5, rotation: true },
+    },
+    {
+      img: "/certs/mthde.png",
+      name: "Threat Hunting and Detection Engineering",
+      description: "MITRE MAD20, Aug 2025",
+      sceneColor: "#b2c9f7",
+      balloonOptions: { count: 10, speed: 1.5, rotation: true },
+    },
+    {
+      img: "/certs/maem.png",
+      name: "Adversary Emulation Methodology",
+      description: "MITRE MAD20, Sep 2025",
+      sceneColor: "#f58282",
+      balloonOptions: { count: 10, speed: 1.5, rotation: true },
+    },
+    {
+      img: "/certs/matde.png",
+      name: "Access Token Detection Engineering",
+      description: "MITRE MAD20, Oct 2025",
+      sceneColor: "#969090",
+      balloonOptions: { count: 10, speed: 1.5, rotation: true },
+    }
   ];
 
   const renderIcon = ({ img, name }) => (
@@ -72,7 +110,7 @@ const TextBody = React.memo(function TextBody() {
     />
   );
 
-  const techIconsContainerVariants = {
+  const credentialsContainerVariants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -112,31 +150,31 @@ const TextBody = React.memo(function TextBody() {
       >
         <motion.h1
           variants={itemVariants}
-          className="text-4xl md:text-5xl font-semibold text-[#0f0f0f] lg:tracking-[0.21em]"
+          className="text-4xl md:text-5xl font-semibold text-[#0f0f0f] lg:tracking-[0.2em]"
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
         >
-          R. MELIH GUNEY
+          R.MELIH GUNEY
         </motion.h1>
         <motion.small
           variants={itemVariants}
-          className="text-[#0f0f0f] font-light text-xs lg:tracking-[0.35em]"
+          className="text-[#0f0f0f] font-medium text-xs lg:tracking-[0.2em]"
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
         >
           Software Engineer, MSc
         </motion.small>
         <motion.p
           variants={itemVariants}
-          className="text-sm leading-relaxed text-[#0f0f0f] mt-4 lg:tracking-[0.104em] text-justify"
+          className="text-sm lg:leading-relaxed text-[#0f0f0f] mt-4 lg:tracking-[0.0091em] md:text-justify"
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
         >
-          Hello! I mostly work on interactive 3D systems and visual analytics, with a focus on application security. This is my personal portfolio showcasing my open source projects. Feel free to check my{" "}
+            Hello! I work on computer graphics, and this is my personal portfolio, showcasing my open source projects, including interactive 3D systems ranging from simulations to games, as well as exploratory low level programming. Feel free to check my{" "}
           <motion.a
             href="https://linkedin.com/in/rmguney"
             target="_blank"
             rel="noopener noreferrer"
             className="cursor-pointer font-medium inline-block text-[#0f0f0f]"
             whileHover={{ 
-              scale: 1.1,
+              scale: 1.05,
               color: "#0A66C2"
             }}
             whileTap={{ scale: 0.95 }}
@@ -149,51 +187,84 @@ const TextBody = React.memo(function TextBody() {
         </motion.p>
 
         <motion.div
-          variants={techIconsContainerVariants}
+          variants={credentialsContainerVariants}
           initial="hidden"
           animate={isInView ? "show" : "hidden"}
-          className="grid grid-cols-5 md:grid-cols-10 lg:flex lg:space-x-5 gap-2 lg:gap-0 mt-3"
+          className="grid grid-cols-5 md:grid-cols-10 lg:flex lg:items-center gap-2 mt-3"
         >
-          {techIcons.map((iconData, index) => (
-            <motion.div
-              key={index}
-              variants={techIconItemVariants}
-              whileHover={() => ({
-                scale: 1.3,
-                rotate: Math.random() * 6 - 3,
-                filter: "url(#icon-shadow-hover)",
-              })}
-              whileTap={{ scale: 0.95 }}
-              className="cursor-pointer relative group"
-              onClick={() =>
-                spawnBalloons(
-                  iconData.sceneColor,
-                  iconData.balloonOptions.count,
-                  iconData.balloonOptions.speed,
-                  iconData.balloonOptions.size,
-                  iconData.balloonOptions.rotation
-                )
-              }
-              style={{
-                ["--hover-color"]: iconData.hoverColor,
-                filter: "url(#icon-shadow)",
-              }}
+          <div className="contents lg:flex lg:space-x-5">
+            {credentials.map((iconData, index) => (
+              <motion.div
+                key={index}
+                variants={techIconItemVariants}
+                whileHover={() => ({
+                  scale: 1.3,
+                  rotate: Math.random() * 6 - 3,
+                  filter: "url(#icon-shadow-hover)",
+                })}
+                whileTap={{ scale: 0.95 }}
+                className="cursor-pointer relative group"
+                onMouseEnter={() => {
+                  setIsHoveringCredential(true);
+                  setShowArrow(true);
+                  if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                  }
+                }}
+                onMouseLeave={() => {
+                  setIsHoveringCredential(false);
+                  timeoutRef.current = setTimeout(() => {
+                    setShowArrow(false);
+                  }, 800);
+                }}
+                onClick={() =>
+                  spawnBalloons(
+                    iconData.sceneColor,
+                    iconData.balloonOptions.count,
+                    iconData.balloonOptions.speed,
+                    iconData.balloonOptions.size,
+                    iconData.balloonOptions.rotation
+                  )
+                }
+                style={{
+                  ["--hover-color"]: iconData.hoverColor,
+                  filter: "url(#icon-shadow)",
+                }}
+              >
+                {renderIcon(iconData)}
+                <span
+                  className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 lg:group-hover:opacity-100 text-[9px] transition-opacity pointer-events-none whitespace-nowrap"
+                  style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
+                >
+                  {iconData.name}
+                </span>
+                <span
+                  className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 opacity-0 lg:group-hover:opacity-100 text-[8px] text-neutral-800 transition-opacity pointer-events-none whitespace-nowrap"
+                  style={{ textShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
+                >
+                  {iconData.description}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+          
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ 
+              opacity: showArrow ? 1 : 0,
+              x: showArrow ? 0 : -10
+            }}
+            transition={{ duration: 0.2 }}
+            className="hidden lg:flex items-center gap-2 ml-3 pointer-events-none"
+          >
+            <FaArrowLeftLong className="text-[#0f0f0f]" size={16} />
+            <span 
+              className="text-xs font-semibold tracking-widest text-[#0f0f0f] whitespace-nowrap"
+              style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
             >
-              {renderIcon(iconData)}
-              <span
-                className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[9px] transition-opacity pointer-events-none whitespace-nowrap"
-                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
-              >
-                {iconData.name}
-              </span>
-              <span
-                className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[8px] text-neutral-800 transition-opacity pointer-events-none whitespace-nowrap"
-                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
-              >
-                {iconData.description}
-              </span>
-            </motion.div>
-          ))}
+              CREDENTIALS
+            </span>
+          </motion.div>
         </motion.div>
       </motion.div>
     </div>

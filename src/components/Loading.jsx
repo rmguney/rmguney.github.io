@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useProgress } from "@react-three/drei";
 import { motion, AnimatePresence } from "framer-motion";
 import React from "react";
 
@@ -17,11 +18,12 @@ const loadingTexts = [
   "Possibly summoning the Nintendo lawyers...",
 ];
 
-const Loading = React.memo(function Loading({ progress = 0 }) {
+const Loading = React.memo(function Loading() {
+  const { progress: loaderProgress } = useProgress();
   const [currentText, setCurrentText] = useState(loadingTexts[0]);
   const [isClient, setIsClient] = useState(false);
   
-const displayProgress = progress;
+  const displayProgress = loaderProgress ?? 0;
 
   useEffect(() => {
     setIsClient(true);
