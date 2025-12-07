@@ -13,7 +13,7 @@ const REPOS_PER_PAGE_MOBILE = 2;
 
 const LANGUAGE_CONFIG = {
   groups: {
-    "JavaScript": ["JavaScript", "TypeScript", "Svelte", "Vue"],
+    "JavaScript": ["JavaScript", "TypeScript", "Svelte", "Vue", "Astro"],
     "C/C++": ["C", "C++", "HLSL", "GLSL", "WGSL", "ShaderLab"]
   },
   
@@ -37,6 +37,7 @@ const LANGUAGE_CONFIG = {
     'ShaderLab': '#222c37',
     'Assembly': '#6E4C13',
     'WebAssembly': '#04133b',
+    'Astro': '#ff5c39', 
     'Svelte': '#ff3e00',
     'Vue': '#41b883',
     'ASP.NET': '#9400ff',
@@ -1278,23 +1279,52 @@ const GameBoy = React.memo(function GameBoy() {
                   {allLanguageStats
                     .filter(lang => LANGUAGE_CONFIG.filterLanguages.includes(lang.name))
                     .slice(0, 8)
-                    .map(lang => (
-                      <button
-                        key={lang.name}
-                        onClick={() => setSelectedLanguage(lang.name === selectedLanguage ? null : lang.name)}
-                        className={`text-xs px-2 py-1 rounded-full flex items-center transition-all flex-shrink-0
-                          ${lang.name === selectedLanguage 
-                            ? 'bg-amber-100/10 text-amber-50 ring-2 ring-amber-50/50' 
-                            : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'}`}
-                      >
-                        <span 
-                          className="inline-block w-2 h-2 rounded-full mr-1.5"
-                          style={{ backgroundColor: LanguageUtils.getColor(lang.name) }}
-                        ></span>
-                        <span>{lang.name}</span>
-                        <span className="ml-1.5 text-white/50">{lang.percentage}%</span>
-                      </button>
-                    ))}
+                    .map(lang => {
+                      const groupedLanguages = LANGUAGE_CONFIG.groups[lang.name];
+                      const hasGroup = groupedLanguages && groupedLanguages.length > 1;
+                      
+                      return (
+                        <div key={lang.name} className="relative group/filter flex-shrink-0">
+                          <button
+                            onClick={() => setSelectedLanguage(lang.name === selectedLanguage ? null : lang.name)}
+                            className={`text-xs px-2 py-1 rounded-full flex items-center transition-all
+                              ${lang.name === selectedLanguage 
+                                ? 'bg-amber-100/10 text-amber-50 ring-2 ring-amber-50/50' 
+                                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'}`}
+                          >
+                            <span 
+                              className="inline-block w-2 h-2 rounded-full mr-1.5"
+                              style={{ backgroundColor: LanguageUtils.getColor(lang.name) }}
+                            ></span>
+                            <span>{lang.name}</span>
+                            <span className="ml-1.5 text-white/50">{lang.percentage}%</span>
+                          </button>
+                          
+                          {hasGroup && (
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-1.5 py-1
+                              bg-black/50 backdrop-blur-sm rounded-lg text-[9px] text-white/90 
+                              opacity-0 group-hover/filter:opacity-100 pointer-events-none 
+                              transition-opacity duration-500 z-50
+                              border border-white/10 shadow-lg whitespace-nowrap">
+                              <div className="flex flex-row items-center gap-3">
+                                <span className="text-white/50 text-[9px]">Linguist:</span>
+                                {groupedLanguages.map(subLang => (
+                                  <span key={subLang} className="flex items-center">
+                                    <span 
+                                      className="inline-block w-1.5 h-1.5 rounded-full mr-0.5"
+                                      style={{ backgroundColor: LanguageUtils.getColor(subLang) }}
+                                    ></span>
+                                    {subLang}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[-1px]
+                                border-4 border-transparent border-b-black/90"></div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               </motion.div>
             )}

@@ -164,10 +164,10 @@ const TextBody = React.memo(function TextBody() {
         </motion.small>
         <motion.p
           variants={itemVariants}
-          className="text-sm lg:leading-relaxed text-[#0f0f0f] mt-4 lg:tracking-[0.0091em] md:text-justify"
+          className="text-sm lg:leading-relaxed text-[#0f0f0f] mt-4 lg:tracking-[0.084em] md:text-justify"
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
         >
-            Hello! I work on computer graphics, and this is my personal portfolio, showcasing my open source projects, including interactive 3D systems ranging from simulations to games, as well as exploratory low level programming. Feel free to check my{" "}
+            Hello! I work on computer graphics, and this is my personal portfolio, showcasing my open source projects, including interactive 3D systems ranging from simulations to games, as well as exploratory low level graphics processing and manipulation. Feel free to check my{" "}
           <motion.a
             href="https://linkedin.com/in/rmguney"
             target="_blank"
