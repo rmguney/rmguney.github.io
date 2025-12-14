@@ -13,24 +13,25 @@ const REPOS_PER_PAGE_MOBILE = 2;
 
 const LANGUAGE_CONFIG = {
   groups: {
-    "JavaScript": ["JavaScript", "TypeScript", "Svelte", "Vue", "Astro"],
-    "C/C++": ["C", "C++", "HLSL", "GLSL", "WGSL", "ShaderLab"]
+    "JS Ecosystem": ["JavaScript", "TypeScript", "Svelte", "Vue", "Astro"],
+    "C-Family": ["C", "C++", "HLSL", "GLSL", "WGSL", "ShaderLab"]
   },
   
   filterLanguages: [
-    'JavaScript', 'C/C++', 'C#', 'Rust', 'Java', 'Python', 'Assembly'
+    'JS Ecosystem', 'C-Family', 'C#', 'Rust', 'Java', 'Python', 'Assembly'
   ],
   
   colors: {
+    'JS Ecosystem': '#f1e05a',
     'JavaScript': '#f1e05a',
     'TypeScript': '#3178c6',
     'Python': '#3572A5',
     'Rust': '#dea584',
     'Java': '#b07219',
     'C#': '#178600',
-    'C++': '#f34b7d',
+    'C-Family': '#555555',
     'C': '#555555',
-    'C/C++': '#555555',
+    'C++': '#f34b7d',
     'HLSL': '#aace60',
     'GLSL': '#5686a5',
     'WGSL': '#1a5e9a',
@@ -343,7 +344,7 @@ const GameBoy = React.memo(function GameBoy() {
       try {
         setLoading(true);
         
-        const token = process.env.NEXT_PUBLIC_HUB_TOKEN || process.env.HUB_TOKEN;
+        const token = import.meta.env.VITE_HUB_TOKEN;
         const headers = token ? { 
           'Authorization': `token ${token}`,
           'Accept': 'application/vnd.github.v3+json'
@@ -477,7 +478,7 @@ const GameBoy = React.memo(function GameBoy() {
         await Promise.all(processedRepos.map(async (repo) => {
           try {
             const repoName = repo.name;
-            const token = process.env.NEXT_PUBLIC_HUB_TOKEN || process.env.HUB_TOKEN;
+            const token = import.meta.env.VITE_HUB_TOKEN;
             const headers = token ? { 
               'Authorization': `token ${token}`,
               'Accept': 'application/vnd.github.v3+json'
@@ -611,7 +612,7 @@ const GameBoy = React.memo(function GameBoy() {
           }
         }
         
-        const token = process.env.NEXT_PUBLIC_HUB_TOKEN || process.env.HUB_TOKEN;
+        const token = import.meta.env.VITE_HUB_TOKEN;
         const headers = token ? { 
           'Authorization': `token ${token}`,
           'Accept': 'application/vnd.github.v3+json'
@@ -1281,7 +1282,14 @@ const GameBoy = React.memo(function GameBoy() {
                     .slice(0, 8)
                     .map(lang => {
                       const groupedLanguages = LANGUAGE_CONFIG.groups[lang.name];
-                      const hasGroup = groupedLanguages && groupedLanguages.length > 1;
+                      
+                      const existingGroupedLanguages = groupedLanguages 
+                        ? groupedLanguages.filter(subLang => 
+                            allRepos.some(repo => repo.languages && repo.languages[subLang])
+                          )
+                        : [];
+                      
+                      const hasGroup = existingGroupedLanguages.length > 1;
                       
                       return (
                         <div key={lang.name} className="relative group/filter flex-shrink-0">
@@ -1308,7 +1316,7 @@ const GameBoy = React.memo(function GameBoy() {
                               border border-white/10 shadow-lg whitespace-nowrap">
                               <div className="flex flex-row items-center gap-3">
                                 <span className="text-white/50 text-[9px]">Linguist:</span>
-                                {groupedLanguages.map(subLang => (
+                                {existingGroupedLanguages.map(subLang => (
                                   <span key={subLang} className="flex items-center">
                                     <span 
                                       className="inline-block w-1.5 h-1.5 rounded-full mr-0.5"

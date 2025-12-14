@@ -24,50 +24,33 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Check and clean configs
-        run: |
-          echo "Checking Next.js configuration files:"
-          ls -la next.config.*
-          echo "Contents of next.config.mjs:"
-          cat next.config.mjs
-          if [ -f "next.config.js" ]; then
-            echo "WARNING: Removing conflicting next.config.js"
-            rm -f next.config.js
-          fi
-
-      - name: Build with Next.js
+      - name: Build with Vite
         env:
-          HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
+          VITE_HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
         run: |
-          echo "Starting Next.js build..."
+          echo "Starting Vite build..."
           npm run build
           echo "Build completed!"
 
+      - name: Copy public assets to dist
+        run: |
+          cp -r public/* dist/ 2>/dev/null || true
+
       - name: List build output
         run: |
-          echo "Listing root directory:"
-          ls -la ./
-          echo "Checking for out directory:"
-          if [ -d "./out" ]; then
-            echo "Out directory exists"
-            echo "Contents of out directory:"
-            ls -la ./out
-          else
-            echo "Out directory does not exist"
-            echo "Checking .next directory contents:"
-            ls -la .next/ || true
-          fi
+          echo "Listing dist directory:"
+          ls -la ./dist
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./out
+          path: ./dist
 
   deploy:
     environment:

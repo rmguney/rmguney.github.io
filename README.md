@@ -42,7 +42,7 @@ Built on **React Three Fiber** (R3F), a React renderer for Three.js that provide
 
 ### Build System & Deployment
 
-**Next.js** configuration optimized for static export with automated CI/CD:
+**Vite** configuration optimized for static export with automated CI/CD:
 
 - **Static Generation**: Pre-rendered pages for optimal loading performance
 - **Asset Optimization**: GLTF model loading with automatic caching
