@@ -38,10 +38,6 @@ jobs:
           npm run build
           echo "Build completed!"
 
-      - name: Copy public assets to dist
-        run: |
-          cp -r public/* dist/ 2>/dev/null || true
-
       - name: List build output
         run: |
           echo "Listing dist directory:"

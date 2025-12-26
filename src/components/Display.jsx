@@ -7,6 +7,7 @@ import Pattern from './Pattern'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import React from 'react';
+import { fetchReposData } from '../utils/prefetchRepos'
 
 const REPOS_PER_PAGE = 4;
 const REPOS_PER_PAGE_MOBILE = 2;
@@ -14,22 +15,12 @@ const REPOS_PER_PAGE_MOBILE = 2;
 const LANGUAGE_CONFIG = {
   groups: {
     "JS Ecosystem": ["JavaScript", "TypeScript", "Svelte", "Vue", "Astro"],
-    "C-Family": ["C", "C++", "HLSL", "GLSL", "WGSL", "ShaderLab"]
+    "C Family": ["C", "C++", "HLSL", "GLSL", "WGSL", "ShaderLab"]
   },
   
-  filterLanguages: [
-    'JS Ecosystem', 'C-Family', 'C#', 'Rust', 'Java', 'Python', 'Assembly'
-  ],
-  
   colors: {
-    'JS Ecosystem': '#f1e05a',
-    'JavaScript': '#f1e05a',
-    'TypeScript': '#3178c6',
-    'Python': '#3572A5',
-    'Rust': '#dea584',
-    'Java': '#b07219',
     'C#': '#178600',
-    'C-Family': '#555555',
+    'C Family': '#555555',
     'C': '#555555',
     'C++': '#f34b7d',
     'HLSL': '#aace60',
@@ -38,6 +29,12 @@ const LANGUAGE_CONFIG = {
     'ShaderLab': '#222c37',
     'Assembly': '#6E4C13',
     'WebAssembly': '#04133b',
+    'Python': '#3572A5',
+    'Rust': '#dea584',
+    'Java': '#b07219',
+    'JS Ecosystem': '#f1e05a',
+    'JavaScript': '#f1e05a',
+    'TypeScript': '#3178c6',
     'Astro': '#ff5c39', 
     'Svelte': '#ff3e00',
     'Vue': '#41b883',
@@ -291,278 +288,14 @@ const GameBoy = React.memo(function GameBoy() {
     };
   }, []);
 
-  const calculateCodeBytes = (languages) => {
-    if (!languages || Object.keys(languages).length === 0) return 0;
-    return Object.values(languages).reduce((sum, bytes) => sum + bytes, 0);
-  };
-  
-  // Helper function to check for changes in repo metadata
-  const checkForChanges = (oldMetadata, newMetadata) => {
-    const details = {
-      newRepos: [],
-      updatedRepos: [],
-      deletedRepos: []
-    };
-    
-    // Create maps for easy lookup
-    const oldMap = new Map(oldMetadata.map(r => [r.id, r]));
-    const newMap = new Map(newMetadata.map(r => [r.id, r]));
-    
-    // Check for new and updated repos
-    for (const newRepo of newMetadata) {
-      const oldRepo = oldMap.get(newRepo.id);
-      if (!oldRepo) {
-        details.newRepos.push(newRepo.name);
-      } else if (
-        newRepo.updated_at !== oldRepo.updated_at || 
-        newRepo.pushed_at !== oldRepo.pushed_at
-      ) {
-        details.updatedRepos.push(newRepo.name);
-      }
-    }
-    
-    // Check for deleted repos
-    for (const oldRepo of oldMetadata) {
-      if (!newMap.has(oldRepo.id)) {
-        details.deletedRepos.push(oldRepo.name);
-      }
-    }
-    
-    const changed = details.newRepos.length > 0 || 
-                   details.updatedRepos.length > 0 || 
-                   details.deletedRepos.length > 0;
-    
-    return { changed, details };
-  };
-  
+  // Use prefetched repo data
   useEffect(() => {
-    const CACHE_KEY = 'github_repos_cache';
-    const CACHE_TTL = 60 * 60 * 1000; // 1h
-    const METADATA_KEY = 'github_repos_metadata';
-    
-    const fetchRepos = async () => {
+    const loadRepos = async () => {
       try {
         setLoading(true);
-        
-        const token = import.meta.env.VITE_HUB_TOKEN;
-        const headers = token ? { 
-          'Authorization': `token ${token}`,
-          'Accept': 'application/vnd.github.v3+json'
-        } : {
-          'Accept': 'application/vnd.github.v3+json'
-        };
-        
-        // STEP 1: Always fetch lightweight metadata to check for updates
-        const metadataResponse = await fetch('https://api.github.com/users/rmguney/repos?per_page=50', { headers });
-        
-        if (!metadataResponse.ok) {
-          throw new Error(`GitHub API error: ${metadataResponse.status}`);
-        }
-        
-        const metadataRepos = await metadataResponse.json();
-        
-        // Extract minimal metadata for comparison
-        const currentMetadata = metadataRepos
-          .filter(repo => !repo.fork)
-          .map(repo => ({
-            id: repo.id,
-            name: repo.name,
-            updated_at: repo.updated_at,
-            pushed_at: repo.pushed_at
-          }));
-        
-        // STEP 2: Check if we have cached data
-        const cachedData = localStorage.getItem(CACHE_KEY);
-        const cachedMetadata = localStorage.getItem(METADATA_KEY);
-        
-        if (cachedData && cachedMetadata) {
-          try {
-            const { repos: cachedRepos, timestamp } = JSON.parse(cachedData);
-            const oldMetadata = JSON.parse(cachedMetadata);
-            
-            // Compare metadata to see if anything changed
-            const hasChanges = checkForChanges(oldMetadata, currentMetadata);
-            
-            if (!hasChanges.changed) {
-              const age = Date.now() - timestamp;
-              setAllRepos(cachedRepos);
-              setTotalPages(Math.ceil(cachedRepos.length / REPOS_PER_PAGE));
-              setError(null);
-              setLoading(false);
-              return;
-            } else {
-              // If only specific repos changed, we could optimize here
-              // For now, we'll do a full refresh when changes are detected
-            }
-          } catch (e) {
-            localStorage.removeItem(CACHE_KEY);
-            localStorage.removeItem(METADATA_KEY);
-          }
-        }
-        
-        // STEP 3: Fetch full data (either no cache, or changes detected)
-        
-        const pinnedRepos = new Set();
-        if (token) {
-          try {
-            const graphqlQuery = `
-              query {
-                user(login: "rmguney") {
-                  pinnedItems(first: 6, types: REPOSITORY) {
-                    nodes {
-                      ... on Repository {
-                        name
-                      }
-                    }
-                  }
-                }
-              }
-            `;
-            
-            const graphqlResponse = await fetch('https://api.github.com/graphql', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ query: graphqlQuery })
-            });
-            
-            if (graphqlResponse.ok) {
-              const graphqlData = await graphqlResponse.json();
-              if (graphqlData.data?.user?.pinnedItems?.nodes) {
-                graphqlData.data.user.pinnedItems.nodes.forEach(repo => {
-                  if (repo?.name) {
-                    pinnedRepos.add(repo.name);
-                  }
-                });
-              }
-            }
-          } catch (graphqlError) {
-            // Error fetching pinned repos
-          }
-        }
-        
-        const response = await fetch('https://api.github.com/users/rmguney/repos?per_page=50', { headers });
-        
-        if (!response.ok) {
-          throw new Error(`GitHub API error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        const processedRepos = data
-          .filter(repo => !repo.fork)
-          .map(repo => ({
-            id: repo.id,
-            name: repo.name || 'Unnamed Repository',
-            description: repo.description || "No description available",
-            url: (repo.homepage && repo.homepage !== "") ? repo.homepage : repo.html_url,
-            githubUrl: repo.html_url || '#',
-            color: '#fff',
-            textColor: '#212121',
-            language: repo.language || 'Unknown',
-            size: repo.size || 0,
-            stars: repo.stargazers_count || 0,
-            forks: repo.forks_count || 0,
-            watchers: repo.watchers_count || 0,
-            languages: {},
-            codeBytes: 0,
-            importanceFactor: 0,
-            isGithubPage: !repo.homepage || repo.homepage === "",
-            isPinned: pinnedRepos.has(repo.name),
-            isPortfolio: repo.name === 'rmguney.github.io' || repo.name.includes('rguney') || 
-                (repo.homepage && (window.location.href.includes(repo.homepage) || 
-                 repo.homepage.includes(window.location.hostname)))
-          }));
-        await Promise.all(processedRepos.map(async (repo) => {
-          try {
-            const repoName = repo.name;
-            const token = import.meta.env.VITE_HUB_TOKEN;
-            const headers = token ? { 
-              'Authorization': `token ${token}`,
-              'Accept': 'application/vnd.github.v3+json'
-            } : {
-              'Accept': 'application/vnd.github.v3+json'
-            };
-            
-            const langUrl = `https://api.github.com/repos/rmguney/${repoName}/languages`;
-            const langResponse = await fetch(langUrl, { headers });
-            
-            if (langResponse.ok) {
-              const languagesData = await langResponse.json();
-              repo.languages = languagesData;
-              repo.codeBytes = calculateCodeBytes(languagesData);
-            }
-
-            repo.ownerIsWatching = false;
-            try {
-              const watchersUrl = `https://api.github.com/repos/rmguney/${repoName}/subscribers`;
-              const watchersResponse = await fetch(watchersUrl, { headers });
-              if (watchersResponse.ok) {
-                const watchersData = await watchersResponse.json();
-                repo.watchers = Array.isArray(watchersData) ? watchersData.length : repo.watchers;
-                if (Array.isArray(watchersData)) {
-                  repo.ownerIsWatching = watchersData.some(watcher => watcher.login === 'rmguney');
-                }
-              }
-            } catch (watchersErr) {
-              // Error fetching watchers
-            }
-
-            try {
-              const stargazersUrl = `https://api.github.com/repos/rmguney/${repoName}/stargazers`;
-              const stargazersResponse = await fetch(stargazersUrl, { headers });
-              if (stargazersResponse.ok) {
-                const stargazersData = await stargazersResponse.json();
-                repo.stars = Array.isArray(stargazersData) ? stargazersData.length : repo.stars;
-              }
-            } catch (stargazersErr) {
-              // Error fetching stargazers
-            }
-          } catch (err) {
-            // Error fetching repo data
-          }
-        }
-        ));
-
-        const calculateImportance = (repo) => {
-          const baseImportance = (repo.stars * 4) + 
-                 (repo.watchers * 3) + 
-                 (repo.forks * 2) + 
-                 (repo.size * 0.00001);
-          
-          const ownerWatchingBias = repo.ownerIsWatching ? baseImportance * 10 : 0;
-          
-          const totalImportance = baseImportance + ownerWatchingBias;
-          
-          return repo.isPinned ? totalImportance * 1000000000000000000000 : totalImportance;
-        };
-
-        processedRepos.forEach(repo => {
-          repo.importanceFactor = calculateImportance(repo);
-        });
-
-        processedRepos.sort((a, b) => b.importanceFactor - a.importanceFactor);
-        
-        setAllRepos(processedRepos);
-        setTotalPages(Math.ceil(processedRepos.length / REPOS_PER_PAGE));
-        
-        // Cache the processed repos AND metadata
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({
-            repos: processedRepos,
-            timestamp: Date.now()
-          }));
-          localStorage.setItem(METADATA_KEY, JSON.stringify(currentMetadata));
-        } catch (e) {
-          // If quota exceeded, clear old cache and try again
-          if (e.name === 'QuotaExceededError') {
-            localStorage.removeItem(CACHE_KEY);
-            localStorage.removeItem(METADATA_KEY);
-          }
-        }
-        
+        const { repos } = await fetchReposData();
+        setAllRepos(repos);
+        setTotalPages(Math.ceil(repos.length / REPOS_PER_PAGE));
         setError(null);
       } catch (err) {
         setError(err.message || "An error occurred");
@@ -573,7 +306,7 @@ const GameBoy = React.memo(function GameBoy() {
       }
     };
 
-    fetchRepos();
+    loadRepos();
   }, []);
 
   useEffect(() => {
@@ -1278,8 +1011,7 @@ const GameBoy = React.memo(function GameBoy() {
                   className="flex items-center justify-center flex-wrap gap-2 px-4 md:px-1 lg:justify-start"
                 >
                   {allLanguageStats
-                    .filter(lang => LANGUAGE_CONFIG.filterLanguages.includes(lang.name))
-                    .slice(0, 8)
+                    .slice(0, 6)
                     .map(lang => {
                       const groupedLanguages = LANGUAGE_CONFIG.groups[lang.name];
                       

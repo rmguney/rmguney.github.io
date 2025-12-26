@@ -8,6 +8,9 @@ import Divider from "./components/Divider"
 import Guide from "./components/Guide"
 import MobileDivider from "./components/MobileDivider"
 
+// Start prefetching repo data immediately on app load
+import './utils/prefetchRepos'
+
 // Lazy load Display component - it's below the fold
 const Display = lazy(() => import("./components/Display"))
 

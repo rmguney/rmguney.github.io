@@ -1,6 +1,6 @@
 # Interactive 3D Portfolio
 
-Personal portfolio website featuring an immersive 3D environment with physics-based balloon interactions and professional background showcase.
+Personal portfolio website featuring an immersive 3D environment with physics-based balloon interactions and open source projects showcase.
 
 ## Technical Architecture
 
@@ -19,9 +19,8 @@ Built on **React Three Fiber** (R3F), a React renderer for Three.js that provide
 
 **React Context** system for global state management:
 
-- **BalloonContext**: Manages balloon spawning queue and color-coded interactions
+- **Framework Showcase**: Dynamic balloon spawning triggered by framework icon interactions managed through context
 - **Loading State Management**: Synchronized loading tracking for multiple 3D assets
-- **Certificate Integration**: Dynamic balloon spawning triggered by professional credential interactions
 
 ### Animation & Interaction Systems
 
@@ -29,7 +28,7 @@ Built on **React Three Fiber** (R3F), a React renderer for Three.js that provide
 
 - **Staggered Component Loading**: Sequential element reveals with intersection observer triggers
 - **Interactive Text Elements**: Hover animations for LinkedIn integration with spring physics
-- **Certificate Showcase**: Grid-based certification display with individual hover effects and balloon spawning
+- **Framework Showcase**: Grid-based framework icon display with individual hover effects and balloon spawning
 - **Wobble Physics**: Advanced balloon deformation system with impact-based animations
 
 ### Performance Optimizations
@@ -67,7 +66,7 @@ Built on **React Three Fiber** (R3F), a React renderer for Three.js that provide
 
 - Hover over balloons to apply physics forces and trigger wobble animations
 - Orbital camera controls for 3D scene exploration
-- Interactive balloon spawning via credential showcase
+- Interactive balloon spawning via framework showcase
 
 **Professional Portfolio Navigation:**
 
