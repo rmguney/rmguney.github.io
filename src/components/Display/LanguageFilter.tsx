@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useMemo } from 'react';
-import { LANGUAGE_CONFIG } from './constants';
+import { LANGUAGE_CONFIG, MAX_LANGUAGE_BADGES } from './constants';
 import { LanguageUtils } from './LanguageUtils';
 
 interface LanguageFilterProps {
@@ -10,8 +10,6 @@ interface LanguageFilterProps {
     allRepos: any[];
 }
 
-const OTHERS_THRESHOLD = 5;
-
 const LanguageFilter: React.FC<LanguageFilterProps> = ({
     allLanguageStats,
     selectedLanguage,
@@ -19,11 +17,14 @@ const LanguageFilter: React.FC<LanguageFilterProps> = ({
     allRepos
 }) => {
     const { majorLanguages, minorLanguages, othersPercentage } = useMemo(() => {
-        const major = allLanguageStats.filter(lang => lang.percentage >= OTHERS_THRESHOLD);
-        const minor = allLanguageStats.filter(lang => lang.percentage < OTHERS_THRESHOLD);
+        const major = allLanguageStats.slice(0, MAX_LANGUAGE_BADGES);
+        const majorNames = new Set(major.map(lang => lang.name));
+        // "Other" lists actual languages, not groups — grouping only applies to the top badges
+        const minor = LanguageUtils.calculateRawStats(allRepos)
+            .filter(lang => !majorNames.has(LanguageUtils.getDisplayName(lang.name)));
         const othersPercent = minor.reduce((sum, lang) => sum + lang.percentage, 0);
         return { majorLanguages: major, minorLanguages: minor, othersPercentage: othersPercent };
-    }, [allLanguageStats]);
+    }, [allLanguageStats, allRepos]);
 
     return (
         <div
@@ -64,7 +65,7 @@ const LanguageFilter: React.FC<LanguageFilterProps> = ({
                   opacity-0 group-hover/filter:opacity-100 pointer-events-none 
                   transition-opacity duration-500 z-50
                   border border-white/10 shadow-lg whitespace-nowrap">
-                                <div className="flex flex-row items-center gap-3">
+                                <div className="flex flex-row items-center gap-1.5">
                                     <span className="text-white/50 text-[9px]">Linguist:</span>
                                     {existingGroupedLanguages.map((subLang: any) => (
                                         <span key={subLang} className="flex items-center">
@@ -102,9 +103,9 @@ const LanguageFilter: React.FC<LanguageFilterProps> = ({
                   opacity-0 group-hover/filter:opacity-100 pointer-events-none 
                   transition-opacity duration-500 z-50
                   border border-white/10 shadow-lg whitespace-nowrap">
-                        <div className="flex flex-row items-center gap-3">
+                        <div className="flex flex-row items-center gap-1.5">
                             <span className="text-white/50 text-[9px]">Linguist:</span>
-                            {minorLanguages.filter((lang: any) => lang.percentage > 0).map((lang: any) => (
+                            {minorLanguages.map((lang: any) => (
                                 <span key={lang.name} className="flex items-center">
                                     <span
                                         className="inline-block w-1.5 h-1.5 rounded-full mr-0.5"

@@ -22,6 +22,7 @@ const Header: React.FC = () => {
                     href="https://github.com/rmguney/"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="GitHub profile"
                     className="ml-4"
                     whileHover={{
                         scale: 1.2,
@@ -40,6 +41,7 @@ const Header: React.FC = () => {
                     href="https://www.linkedin.com/in/rmguney/"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="LinkedIn profile"
                     className="ml-4"
                     whileHover={{
                         scale: 1.2,

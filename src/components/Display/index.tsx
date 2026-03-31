@@ -4,28 +4,13 @@ import { FaCaretLeft, FaCaretRight } from 'react-icons/fa'
 import { motion, useInView } from "framer-motion";
 import Pattern from '../Pattern';
 import { fetchReposData } from '../../utils/prefetchRepos';
-import { REPOS_PER_PAGE, REPOS_PER_PAGE_MOBILE, LANGUAGE_CONFIG } from './constants';
+import { REPOS_PER_PAGE, REPOS_PER_PAGE_MOBILE, LANGUAGE_CONFIG, MAX_LANGUAGE_BADGES } from './constants';
 import { LanguageUtils } from './LanguageUtils';
 import ProjectCard from './ProjectCard';
 import GameBoyConsole from './GameBoyConsole';
 import LanguageFilter from './LanguageFilter';
 
 const GameBoy = React.memo(function GameBoy() {
-    useEffect(() => {
-        const originalConsoleError = console.error;
-        console.error = (...args) => {
-            // @ts-ignore
-            if (typeof args[0] === 'string' && args[0].includes('AnimatePresence') && args[0].includes('mode is set to "wait"')) {
-                return;
-            }
-            originalConsoleError(...args);
-        };
-
-        return () => {
-            console.error = originalConsoleError;
-        };
-    }, []);
-
     const [allRepos, setAllRepos] = useState<any[]>([]);
     const [displayedRepos, setDisplayedRepos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -45,18 +30,21 @@ const GameBoy = React.memo(function GameBoy() {
     const iframeRef = useRef<HTMLIFrameElement>(null)
     const textRef = useRef(null);
     const isInView = useInView(textRef, {
-        once: false,
+        once: true,
         amount: 0.3,
         margin: "0px 0px -100px 0px"
     });
 
     const cartridgesRef = useRef(null);
     const isCartridgesInView = useInView(cartridgesRef, {
-        once: false,
+        once: true,
         amount: 0.3
     });
 
-    const cardRefs = Array(REPOS_PER_PAGE).fill(null).map(() => useRef(null));
+    const cardRefs = React.useMemo(
+        () => Array.from({ length: REPOS_PER_PAGE }, () => React.createRef<HTMLButtonElement>()),
+        []
+    );
 
     const [readmeContent, setReadmeContent] = useState('');
     const [readmeLoading, setReadmeLoading] = useState(false);
@@ -78,9 +66,7 @@ const GameBoy = React.memo(function GameBoy() {
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                    resetAllCardTransforms();
-                } else {
+                if (!entry.isIntersecting) {
                     resetAllCardTransforms();
                 }
             });
@@ -109,9 +95,11 @@ const GameBoy = React.memo(function GameBoy() {
         if (selectedLanguage) {
             let filtered;
             if (selectedLanguage === '__others__') {
-                // Get minor languages (below 5%)
-                const minorLanguages = allLanguageStats
-                    .filter(lang => lang.percentage < 5)
+                const majorNames = new Set(
+                    allLanguageStats.slice(0, MAX_LANGUAGE_BADGES).map(lang => lang.name)
+                );
+                const minorLanguages = LanguageUtils.calculateRawStats(allRepos)
+                    .filter(lang => !majorNames.has(LanguageUtils.getDisplayName(lang.name)))
                     .map(lang => lang.name);
                 filtered = allRepos.filter(repo =>
                     LanguageUtils.repoMatchesOthers(repo, minorLanguages)
@@ -335,19 +323,6 @@ const GameBoy = React.memo(function GameBoy() {
         if (activeIndex !== null && displayedRepos.length > 0 && activeIndex < displayedRepos.length) {
             setCurrentWebsite(displayedRepos[activeIndex].url)
             setCartridgeSelected(true)
-
-            const iframe = iframeRef.current
-            if (iframe) {
-                const handleIframeLoad = () => {
-                    try {
-                    } catch (error) {
-                        // Error manipulating iframe
-                    }
-                }
-
-                iframe.addEventListener('load', handleIframeLoad)
-                return () => iframe.removeEventListener('load', handleIframeLoad)
-            }
         }
     }, [activeIndex, displayedRepos])
 
@@ -431,17 +406,12 @@ const GameBoy = React.memo(function GameBoy() {
     };
 
     const goToNextPage = () => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const reposPerPage = isSmallScreen ? REPOS_PER_PAGE_MOBILE : REPOS_PER_PAGE;
         setCurrentPage(prev => Math.min(prev + 1, totalPages));
     };
 
     const goToPreviousPage = () => {
         setCurrentPage(prev => Math.max(prev - 1, 1));
     };
-
-    const [gameBoyOffset] = useState(0);
-    const [titleOffset] = useState(0);
 
     useEffect(() => {
         const style = document.createElement('style');
@@ -552,23 +522,12 @@ const GameBoy = React.memo(function GameBoy() {
                             initial={hasMounted ? false : { opacity: 0, y: 10 }}
                             animate={isInView ? {
                                 opacity: 0.15,
-                                y: 0,
-                                x: isSmallScreen ? 0 : titleOffset
+                                y: 0
                             } : {
                                 opacity: 0,
-                                y: 10,
-                                x: 0
+                                y: 10
                             }}
-                            transition={{
-                                opacity: { duration: 0.5, delay: 0.1 },
-                                y: { duration: 0.5, delay: 0.1 },
-                                x: {
-                                    type: "spring",
-                                    stiffness: 80,
-                                    damping: 12,
-                                    mass: 0.8,
-                                }
-                            }}
+                            transition={{ duration: 0.5, delay: 0.1 }}
                             className="absolute lg:-top-24 hidden lg:block text-[50px] lg:text-[120px] font-black whitespace-nowrap"
                             style={{
                                 background: 'linear-gradient(to bottom, rgba(255,255,255,0.4), rgba(255,255,255,0.2))',
@@ -580,26 +539,15 @@ const GameBoy = React.memo(function GameBoy() {
                         </motion.span>
                         <motion.h1
                             key={`titlebar-h1-${entranceKey}`}
-                            initial={hasMounted ? false : { opacity: 0, y: -10, x: 0 }}
+                            initial={hasMounted ? false : { opacity: 0, y: -10 }}
                             animate={isInView ? {
                                 opacity: 1,
-                                y: 0,
-                                x: isSmallScreen ? 0 : titleOffset
+                                y: 0
                             } : {
                                 opacity: 0,
-                                y: -10,
-                                x: 0
+                                y: -10
                             }}
-                            transition={{
-                                opacity: { duration: 0.5, delay: 0.1 },
-                                y: { duration: 0.5, delay: 0.1 },
-                                x: {
-                                    type: "spring",
-                                    stiffness: 80,
-                                    damping: 12,
-                                    mass: 0.8,
-                                }
-                            }}
+                            transition={{ duration: 0.5, delay: 0.1 }}
                             className="pt-6 lg:pt-0 relative text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white/80 via-amber-50/90 to-white/80 lg:tracking-[0.2em] text-center lg:text-left"
                             style={{ textShadow: '0 0 20px rgba(255,255,255,0.2)' }}>
                             REPOSITORIES
@@ -608,26 +556,15 @@ const GameBoy = React.memo(function GameBoy() {
                         {!loading && !error && (
                             <motion.div
                                 key={`titlebar-sortbar-${entranceKey}`}
-                                initial={hasMounted ? false : { opacity: 0, y: 5, x: 0 }}
+                                initial={hasMounted ? false : { opacity: 0, y: 5 }}
                                 animate={isInView ? {
                                     opacity: 1,
-                                    y: 0,
-                                    x: isSmallScreen ? 0 : titleOffset
+                                    y: 0
                                 } : {
                                     opacity: 0,
-                                    y: 5,
-                                    x: 0
+                                    y: 5
                                 }}
-                                transition={{
-                                    opacity: { duration: 0.5, delay: 0.2 },
-                                    y: { duration: 0.5, delay: 0.2 },
-                                    x: {
-                                        type: "spring",
-                                        stiffness: 80,
-                                        damping: 12,
-                                        mass: 0.8,
-                                    }
-                                }}
+                                transition={{ duration: 0.5, delay: 0.2 }}
                                 className="mt-4 lg:mt-2 w-full relative"
                             >
                                 <LanguageFilter
@@ -731,8 +668,6 @@ const GameBoy = React.memo(function GameBoy() {
                 <GameBoyConsole
                     gameboyAnimated={gameboyAnimated}
                     loading={loading}
-                    isSmallScreen={isSmallScreen}
-                    gameBoyOffset={gameBoyOffset}
                     entranceKey={entranceKey}
                     cartridgeSelected={cartridgeSelected}
                     currentWebsite={currentWebsite}

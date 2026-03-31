@@ -1,0 +1,9 @@
+# rmguney
+
+> Personal portfolio of R. Melih Guney, a software engineer (MSc) focused on interactive systems and computer graphics. The site presents open source projects ranging from games and simulations to low level graphics programming, rendered as an interactive 3D scene with a browsable project display fed by the GitHub API.
+
+## Links
+
+- [GitHub](https://github.com/rmguney): Source code for all showcased projects
+- [LinkedIn](https://www.linkedin.com/in/rmguney/): Professional background and contact
+- [Site repository](https://github.com/rmguney/rmguney.github.io): Source of this website
