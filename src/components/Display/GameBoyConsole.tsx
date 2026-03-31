@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from "framer-motion";
 import { FaGithub, FaCaretUp, FaCaretDown, FaCaretLeft, FaCaretRight } from 'react-icons/fa';
 import { HiLink } from 'react-icons/hi';
@@ -11,8 +11,6 @@ import { formatRepoName } from './utils';
 interface GameBoyConsoleProps {
     gameboyAnimated: boolean;
     loading: boolean;
-    isSmallScreen: boolean;
-    gameBoyOffset: number;
     entranceKey: number;
     cartridgeSelected: boolean;
     currentWebsite: string | null;
@@ -31,8 +29,6 @@ interface GameBoyConsoleProps {
 const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
     gameboyAnimated,
     loading,
-    isSmallScreen,
-    gameBoyOffset,
     entranceKey,
     cartridgeSelected,
     currentWebsite,
@@ -48,7 +44,10 @@ const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
     iframeRef
 }) => {
 
-    const MarkdownComponents = createMarkdownComponents(activeIndex, displayedRepos);
+    const MarkdownComponents = useMemo(
+        () => createMarkdownComponents(activeIndex, displayedRepos),
+        [activeIndex, displayedRepos]
+    );
 
     return (
         <motion.div
@@ -57,7 +56,7 @@ const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
             initial={!gameboyAnimated ? { opacity: 0, x: -100 } : false}
             animate={!loading ? {
                 opacity: 1,
-                x: isSmallScreen ? 0 : gameBoyOffset
+                x: 0
             } : {
                 opacity: 0,
                 x: -100

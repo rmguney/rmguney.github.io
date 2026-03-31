@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from "framer-motion";
 import { formatRepoName } from './utils';
 import Badges from './Badges';
@@ -29,56 +29,73 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
     isCartridgesInView
 }) => {
 
-    const handleCardMouseMove = (e: React.MouseEvent, cardRef: React.RefObject<HTMLButtonElement>) => {
-        // @ts-ignore
+    const pointerPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    const tiltFrame = useRef<number | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (tiltFrame.current !== null) {
+                cancelAnimationFrame(tiltFrame.current);
+            }
+        };
+    }, []);
+
+    const handleCardMouseMove = (e: React.MouseEvent) => {
         if (!cardRef.current || !isCartridgesInView) return;
 
-        const { left, top, width, height } = cardRef.current.getBoundingClientRect();
-        const x = (e.clientX - left - width / 2) / 15;
-        const y = (e.clientY - top - height / 2) / 15;
+        pointerPos.current.x = e.clientX;
+        pointerPos.current.y = e.clientY;
 
-        requestAnimationFrame(() => {
-            if (cardRef.current) {
-                cardRef.current.style.transition = 'transform 0.3s ease-out';
-                cardRef.current.style.transform = `perspective(800px) rotateY(${x}deg) rotateX(${-y}deg) scale3d(1.05, 1.05, 1.05)`;
+        if (tiltFrame.current !== null) return;
+        tiltFrame.current = requestAnimationFrame(() => {
+            tiltFrame.current = null;
+            const card = cardRef.current;
+            if (!card) return;
 
-                const highlight: any = cardRef.current.querySelector('.card-highlight');
-                if (highlight) {
-                    highlight.style.opacity = '1';
-                    highlight.style.transition = 'background 0.3s ease-out 0.1s, opacity 0.3s ease-out';
+            const { left, top, width, height } = card.getBoundingClientRect();
+            const x = (pointerPos.current.x - left - width / 2) / 15;
+            const y = (pointerPos.current.y - top - height / 2) / 15;
 
-                    const angleOffset = Math.atan2(-y, -x) * (180 / Math.PI);
-                    const gradientAngle = (angleOffset + 270) % 360;
+            card.style.transition = 'transform 0.3s ease-out';
+            card.style.transform = `perspective(800px) rotateY(${x}deg) rotateX(${-y}deg) scale3d(1.05, 1.05, 1.05)`;
 
-                    const distance = Math.sqrt(x * x + y * y);
-                    const intensity = 0.001 + Math.min(0.05, distance / 40);
+            const highlight: any = card.querySelector('.card-highlight');
+            if (highlight) {
+                highlight.style.opacity = '1';
+                highlight.style.transition = 'background 0.3s ease-out 0.1s, opacity 0.3s ease-out';
 
-                    highlight.style.background = `linear-gradient(
-            ${gradientAngle}deg, 
-            rgba(255,255,255,${intensity}), 
+                const angleOffset = Math.atan2(-y, -x) * (180 / Math.PI);
+                const gradientAngle = (angleOffset + 270) % 360;
+
+                const distance = Math.sqrt(x * x + y * y);
+                const intensity = 0.001 + Math.min(0.05, distance / 40);
+
+                highlight.style.background = `linear-gradient(
+            ${gradientAngle}deg,
+            rgba(255,255,255,${intensity}),
             transparent 95%
           )`;
-                }
             }
         });
     };
 
-    const handleCardMouseLeave = (cardRef: React.RefObject<HTMLButtonElement>) => {
-        if (!cardRef.current) return;
+    const handleCardMouseLeave = () => {
+        if (tiltFrame.current !== null) {
+            cancelAnimationFrame(tiltFrame.current);
+            tiltFrame.current = null;
+        }
+        const card = cardRef.current;
+        if (!card) return;
 
-        requestAnimationFrame(() => {
-            if (cardRef.current) {
-                cardRef.current.style.transition = 'transform 0.4s ease-out';
-                cardRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+        card.style.transition = 'transform 0.4s ease-out';
+        card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
 
-                const highlight: any = cardRef.current.querySelector('.card-highlight');
-                if (highlight) {
-                    highlight.style.opacity = '0';
-                    highlight.style.transition = 'background 0.4s ease-out, opacity 0.3s ease-out';
-                    highlight.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.1), transparent 90%)';
-                }
-            }
-        });
+        const highlight: any = card.querySelector('.card-highlight');
+        if (highlight) {
+            highlight.style.opacity = '0';
+            highlight.style.transition = 'background 0.4s ease-out, opacity 0.3s ease-out';
+            highlight.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.1), transparent 90%)';
+        }
     };
 
     return (
@@ -94,11 +111,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                     setCartridgeSelected(false);
                 }
             }}
-            onMouseMove={(e) => handleCardMouseMove(e, cardRef)}
-            onMouseLeave={() => handleCardMouseLeave(cardRef)}
-            className={`group relative transition-all duration-500
+            onMouseMove={handleCardMouseMove}
+            onMouseLeave={handleCardMouseLeave}
+            className={`group relative
         ${isSmallScreen ? 'w-[160px] h-[160px]' : 'w-[189px] h-[190px]'}
-        ${index === activeIndex ? 'ring-2 ring-amber-100/70 ring-offset-2 ring-offset-black/30 rounded-md transition-all duration-300' : ''}`}
+        ${index === activeIndex ? 'ring-2 ring-amber-100/70 ring-offset-2 ring-offset-black/30 rounded-md' : ''}`}
             style={{
                 transformStyle: 'preserve-3d',
                 transition: 'all 0.4s ease-out'
@@ -140,14 +157,14 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 style={{ transform: 'translateZ(40px)' }}
             >
                 <div className="flex flex-col items-center space-y-1 max-w-full">
-                    <h3 className={`font-bold text-center bg-gradient-to-r from-white via-amber-50 to-white
-            bg-clip-text text-transparent bg-[length:200%_100%] animate-shimmer drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] leading-tight
+                    <h2 className={`font-bold text-center bg-gradient-to-r from-white via-amber-50 to-white
+            bg-clip-text text-transparent bg-[length:200%_100%] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] leading-tight
             ${isSmallScreen ? 'text-base' : 'text-lg'}`}>
                         {formatRepoName(repo.name)}
-                    </h3>
+                    </h2>
 
-                    <p className={`text-center bg-gradient-to-r text-white/60
-            bg-clip-text bg-[length:200%_100%] animate-shimmer drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] leading-tight
+                    <p className={`text-center text-white/60
+            drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] leading-tight
             ${isSmallScreen ? 'text-[10px]' : 'text-xs'}`}>
                         {repo.description.length > (isSmallScreen ? 80 : 100) ?
                             repo.description.substring(0, isSmallScreen ? 80 : 100) + '...' :

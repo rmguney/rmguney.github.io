@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { RapierRigidBody } from '@react-three/rapier';
-import type { ReactNode, MutableRefObject } from 'react';
+import type { ReactNode, ReactElement, MutableRefObject } from 'react';
 
 // ============================================
 // Balloon Context Types
@@ -73,7 +73,8 @@ export interface RapierProviderProps {
 // ============================================
 
 export interface BalloonIconData {
-    img: string;
+    icon: ReactElement;
+    hoverColor?: string;
     name: string;
     description: string;
     sceneColor: string;

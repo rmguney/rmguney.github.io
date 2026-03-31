@@ -49,7 +49,14 @@ const Pattern: React.FC<PatternProps> = ({ size = 30 }) => {
                     >
                         {line.map((iconSrc, iconIndex) => (
                             <div key={`${lineIndex}-${iconIndex}`}>
-                                <img src={iconSrc} alt="" width={size} height={size} />
+                                <img
+                                    src={iconSrc}
+                                    alt=""
+                                    width={size * 2}
+                                    height={size * 2}
+                                    className="object-contain"
+                                    style={{ width: size, height: size }}
+                                />
                             </div>
                         ))}
                     </div>
