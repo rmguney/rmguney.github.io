@@ -1,26 +1,22 @@
-import { useState, useRef, useEffect, Suspense, useCallback, MutableRefObject } from "react";
+﻿import { useState, useRef, useEffect, Suspense } from "react";
 import { Canvas, useFrame, useThree, RootState } from "@react-three/fiber";
-import { Physics, RigidBody, useRapier, RapierRigidBody } from "@react-three/rapier";
-import { useGLTF, OrbitControls, PerspectiveCamera } from "@react-three/drei";
+import { useGLTF, useProgress, OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
-import { useBalloons } from '../context/BalloonContext';
+import { applyModelCelShading } from './shading';
+import { loadProgress } from '../utils/loadProgress';
 import React from 'react';
+import type { RapierRigidBody } from "@react-three/rapier";
 import type {
-    BalloonData,
-    BalloonProps,
     ModelProps,
     SkyboxProps,
     SceneProps,
     Scene3DProps,
-    RapierProviderProps,
-    WobbleState,
-    LastImpact,
-    RotationState,
     IVector3Pool,
     BalloonMesh
 } from '../types';
 
-// Vector3 Object Pool for performance
+const BalloonField = React.lazy(() => import('./BalloonField'));
+
 class Vector3Pool implements IVector3Pool {
     private pool: THREE.Vector3[] = [];
     private active: Set<THREE.Vector3> = new Set();
@@ -40,7 +36,7 @@ class Vector3Pool implements IVector3Pool {
     release(vec: THREE.Vector3): void {
         if (this.active.has(vec)) {
             this.active.delete(vec);
-            vec.set(0, 0, 0); // Reset
+            vec.set(0, 0, 0);
             this.pool.push(vec);
         }
     }
@@ -56,27 +52,35 @@ class Vector3Pool implements IVector3Pool {
 
 const vector3Pool = new Vector3Pool(100);
 
-const originalWarn = console.warn;
-console.warn = function (message: unknown) {
-    if (typeof message === 'string' && message.includes('KHR_materials_pbrSpecularGlossiness')) {
-        return;
-    }
-    originalWarn.apply(console, arguments as unknown as [unknown?, ...unknown[]]);
-};
+const tmpSphere = new THREE.Sphere();
+
+const FORCE_AMOUNT = 250;
+
+const DRACO_DECODER_PATH = '/draco/';
+
+function ProgressForwarder(): null {
+    useEffect(
+        () => useProgress.subscribe((state) => loadProgress.set(state.progress)),
+        []
+    );
+    return null;
+}
 
 function Model({ setModelLoaded }: ModelProps): React.ReactElement {
     const group = useRef<THREE.Group>(null);
-    const { scene, animations } = useGLTF("./models/model.glb");
+    const { scene, animations } = useGLTF("/models/model.glb", DRACO_DECODER_PATH);
     const mixer = useRef<THREE.AnimationMixer | null>(null);
 
     useEffect(() => {
         if (scene) {
             scene.traverse((child) => {
                 if (child instanceof THREE.Mesh) {
-                    child.castShadow = false;  // Disabled for performance
-                    child.receiveShadow = false;  // Disabled for performance
+                    child.castShadow = false;
+                    child.receiveShadow = false;
                     if (child.material) {
                         (child.material as THREE.Material).toneMapped = false;
+                        (child.material as THREE.Material).onBeforeCompile = applyModelCelShading;
+                        (child.material as THREE.Material).needsUpdate = true;
                     }
                 }
             });
@@ -104,7 +108,7 @@ function Model({ setModelLoaded }: ModelProps): React.ReactElement {
 
 function Skybox({ setSkyboxLoaded }: SkyboxProps): React.ReactElement {
     const skyboxGroupRef = useRef<THREE.Group>(null);
-    const { scene } = useGLTF("./models/skybox.glb");
+    const { scene } = useGLTF("/models/skybox.glb", DRACO_DECODER_PATH);
 
     useEffect(() => {
         if (scene) {
@@ -135,266 +139,34 @@ function Skybox({ setSkyboxLoaded }: SkyboxProps): React.ReactElement {
     );
 }
 
-const Balloon = React.memo(function Balloon({ position, color, meshToBodyRef, spawning, onRemove, id }: BalloonProps): React.ReactElement {
-    const mesh = useRef<BalloonMesh>(null);
-    const balloonMeshRef = useRef<THREE.Mesh>(null);
-    const balloonGroupRef = useRef<THREE.Group>(null);
-    const rigidBodyRef = useRef<RapierRigidBody>(null);
-    const materialRef = useRef<THREE.MeshPhysicalMaterial>(null);
-    const knotMaterialRef = useRef<THREE.MeshPhysicalMaterial>(null);
-    const windOffset = useRef<number>(Math.random() * Math.PI * 2);
-    const balloonMass = useRef<number>(0.1 + Math.random() * 0.05);
-    const spawnPosition = useRef<THREE.Vector3>(new THREE.Vector3(...position));
-
-    const wobbleRef = useRef<WobbleState>({ x: 0, y: 0, z: 0, intensity: 0 });
-    const lastImpactRef = useRef<LastImpact>({ point: new THREE.Vector3(), time: 0 });
-    // const _deformationRef = useRef<{ x: number; y: number; z: number }>({ x: 1, y: 1, z: 1 });
-
-    const originalRotationRef = useRef<RotationState>({ x: 0, y: 0, z: 0 });
-
-    useFrame((state, delta) => {
-        const currentTime = state.clock.getElapsedTime();
-
-        if (rigidBodyRef.current) {
-            const buoyancyForce = { x: 0, y: 9.8 * balloonMass.current * 0.1, z: 0 };
-            rigidBodyRef.current.applyImpulse(buoyancyForce, true);
-
-            const windForce = {
-                x: Math.sin(currentTime * 0.5 + windOffset.current) * 0.08,
-                y: Math.sin(currentTime * 0.3) * 0.02,
-                z: Math.cos(currentTime * 0.4 + windOffset.current) * 0.08
-            };
-            rigidBodyRef.current.applyImpulse(windForce, true);
-
-            const torque = {
-                x: Math.sin(currentTime * 0.7) * 0.01,
-                y: Math.cos(currentTime * 0.5) * 0.015,
-                z: Math.sin(currentTime * 0.6) * 0.01
-            };
-            rigidBodyRef.current.applyTorqueImpulse(torque, true);
-        }
-
-        if (balloonMeshRef.current && balloonGroupRef.current) {
-            const timeSinceImpact = currentTime - lastImpactRef.current.time;
-
-            if (timeSinceImpact < 2.0) {
-                const wobbleDecay = Math.max(0, 1 - timeSinceImpact / 2.0);
-                const wobbleFreq = 12 * (1 + wobbleRef.current.intensity);
-
-                const wobbleX = Math.sin(currentTime * wobbleFreq) * wobbleRef.current.x * wobbleDecay * 0.5;
-                const wobbleY = Math.sin(currentTime * wobbleFreq * 1.2) * wobbleRef.current.y * wobbleDecay * 0.3;
-                const wobbleZ = Math.sin(currentTime * wobbleFreq * 0.8) * wobbleRef.current.z * wobbleDecay * 0.5;
-
-                const deformX = 1 + wobbleX * 0.8;
-                const deformY = 1 + wobbleY * 0.6;
-                const deformZ = 1 + wobbleZ * 0.8;
-
-                balloonMeshRef.current.scale.set(deformX, deformY, deformZ);
-
-                const rotationX = wobbleX * 1;
-                const rotationZ = wobbleZ * 1;
-
-                const complementaryRotX = Math.sin(currentTime * wobbleFreq * 0.7) * wobbleRef.current.z * wobbleDecay * 0.2;
-                const complementaryRotY = Math.sin(currentTime * wobbleFreq * 0.5) * wobbleRef.current.intensity * wobbleDecay * 0.15;
-                const complementaryRotZ = Math.sin(currentTime * wobbleFreq * 0.9) * wobbleRef.current.x * wobbleDecay * 0.2;
-
-                balloonGroupRef.current.rotation.x = originalRotationRef.current.x + rotationX + complementaryRotX;
-                balloonGroupRef.current.rotation.y = originalRotationRef.current.y + complementaryRotY;
-                balloonGroupRef.current.rotation.z = originalRotationRef.current.z + rotationZ + complementaryRotZ;
-            } else {
-                balloonMeshRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), delta * 5);
-                balloonGroupRef.current.rotation.x = THREE.MathUtils.lerp(balloonGroupRef.current.rotation.x, originalRotationRef.current.x, delta * 5);
-                balloonGroupRef.current.rotation.y = THREE.MathUtils.lerp(balloonGroupRef.current.rotation.y, originalRotationRef.current.y, delta * 5);
-                balloonGroupRef.current.rotation.z = THREE.MathUtils.lerp(balloonGroupRef.current.rotation.z, originalRotationRef.current.z, delta * 5);
-            }
-        }
-
-        if (spawning && materialRef.current && knotMaterialRef.current) {
-            materialRef.current.opacity = THREE.MathUtils.lerp(
-                materialRef.current.opacity,
-                0.85,
-                0.1
-            );
-
-            knotMaterialRef.current.opacity = THREE.MathUtils.lerp(
-                knotMaterialRef.current.opacity,
-                0.9,
-                0.1
-            );
-
-            if (mesh.current) {
-                mesh.current.scale.x = mesh.current.scale.y = mesh.current.scale.z = THREE.MathUtils.lerp(
-                    mesh.current.scale.x,
-                    1,
-                    0.1
-                );
-            }
-        }
-
-        if (mesh.current && onRemove) {
-            const currentPosition = new THREE.Vector3();
-            mesh.current.getWorldPosition(currentPosition);
-            const distanceFromSpawn = currentPosition.distanceTo(spawnPosition.current);
-
-            if (distanceFromSpawn > 200) {
-                onRemove(id);
-            }
-        }
-    });
-
-    const triggerWobble = (impactPoint: THREE.Vector3, _impactDirection: THREE.Vector3, intensity: number = 1, currentTime?: number): void => {
-        if (!balloonMeshRef.current) return;
-
-        const balloonPos = new THREE.Vector3();
-        balloonMeshRef.current.getWorldPosition(balloonPos);
-
-        const relativeImpact = impactPoint.clone().sub(balloonPos).normalize();
-
-        wobbleRef.current.x = relativeImpact.x * intensity;
-        wobbleRef.current.y = relativeImpact.y * intensity * 0.5;
-        wobbleRef.current.z = relativeImpact.z * intensity;
-        wobbleRef.current.intensity = intensity;
-
-        lastImpactRef.current.point.copy(impactPoint);
-        lastImpactRef.current.time = currentTime || performance.now() / 1000;
-    };
-
-    useEffect(() => {
-        if (mesh.current && spawning) {
-            mesh.current.scale.set(0.1, 0.1, 0.1);
-            if (materialRef.current) {
-                materialRef.current.opacity = 0;
-            }
-            if (knotMaterialRef.current) {
-                knotMaterialRef.current.opacity = 0;
-            }
-        }
-
-        if (balloonMeshRef.current && originalRotationRef.current.x === 0 && originalRotationRef.current.y === 0 && originalRotationRef.current.z === 0) {
-            originalRotationRef.current.x = balloonMeshRef.current.rotation.x;
-            originalRotationRef.current.y = balloonMeshRef.current.rotation.y;
-            originalRotationRef.current.z = balloonMeshRef.current.rotation.z;
-        }
-    }, [spawning]);
-
-    useEffect(() => {
-        if (mesh.current && rigidBodyRef.current) {
-            // Store balloon ID in mesh for cleanup tracking
-            mesh.current.userData = { balloonId: id };
-            meshToBodyRef.current.set(mesh.current as unknown as THREE.Mesh, rigidBodyRef.current);
-            mesh.current.triggerWobble = triggerWobble;
-
-            if (balloonGroupRef.current) {
-                originalRotationRef.current = {
-                    x: balloonGroupRef.current.rotation.x,
-                    y: balloonGroupRef.current.rotation.y,
-                    z: balloonGroupRef.current.rotation.z
-                };
-            }
-        }
-        return () => {
-            if (mesh.current) {
-                meshToBodyRef.current.delete(mesh.current as unknown as THREE.Mesh);
-            }
-        };
-    }, [meshToBodyRef, id]);
-
-    return (
-        <RigidBody
-            ref={rigidBodyRef}
-            gravityScale={0.02}
-            linearDamping={1.5}
-            angularDamping={1.0}
-            mass={balloonMass.current}
-            restitution={0.8}
-            friction={0.1}
-            colliders="ball"
-        >
-            <mesh
-                ref={mesh as React.RefObject<THREE.Mesh>}
-                position={position}
-            >
-                <group ref={balloonGroupRef}>
-                    <mesh ref={balloonMeshRef}>
-                        <sphereGeometry args={[2, 32, 32]} />
-                        <meshPhysicalMaterial
-                            ref={materialRef}
-                            color={color}
-                            transparent={true}
-                            opacity={spawning ? 0 : 0.85}
-                            roughness={0.1}
-                            metalness={0.0}
-                            clearcoat={0.8}
-                            clearcoatRoughness={0.1}
-                            transmission={0.1}
-                            thickness={0.5}
-                        />
-                    </mesh>
-                    {/* Balloon knot - with proper material reference */}
-                    <mesh position={[0, -2.1, 0]} scale={[0.3, 0.4, 0.3]}>
-                        <sphereGeometry args={[0.5, 16, 16]} />
-                        <meshPhysicalMaterial
-                            ref={knotMaterialRef}
-                            color={color}
-                            transparent={true}
-                            opacity={spawning ? 0 : 0.9}
-                            roughness={0.8}
-                            metalness={0.0}
-                        />
-                    </mesh>
-                </group>
-            </mesh>
-        </RigidBody>
-    );
-});
-
-function getRandomPosition(): [number, number, number] {
-    return [
-        Math.random() * 50 - 25,
-        Math.random() * 50 - 25,
-        Math.random() * 50 - 25,
-    ];
-}
-
-function getRandomColor(): string {
-    const colors = ["#fdaea4", "#67e8f9", "#fef08a"];
-    return colors[Math.floor(Math.random() * colors.length)];
-}
-
-function RapierProvider({ rapierRef, worldRef }: RapierProviderProps): null {
-    const { rapier, world } = useRapier();
-    useEffect(() => {
-        rapierRef.current = rapier;
-        worldRef.current = world;
-    }, [rapier, world, rapierRef, worldRef]);
-    return null;
-}
 
 function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rapierRef = useRef<any>(null);
-    const worldRef = useRef<import('@dimforge/rapier3d-compat').World | null>(null);
     const meshToBodyRef = useRef<Map<THREE.Mesh, RapierRigidBody>>(new Map());
-    const [forceAmount] = useState<number>(250);
-    const { camera } = useThree();
-    const { balloonSpawnQueue, clearSpawnQueue } = useBalloons();
-    const [balloons, setBalloons] = useState<BalloonData[]>([]);
+    const { camera, gl } = useThree();
     const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
+    const pointerRef = useRef<THREE.Vector2>(new THREE.Vector2());
     const clockTimeRef = useRef<number>(0);
 
     const [modelLoadedState, setModelLoadedState] = useState<boolean>(false);
     const [skyboxLoadedState, setSkyboxLoadedState] = useState<boolean>(false);
     const [loadSkybox, setLoadSkybox] = useState<boolean>(false);
+    const [physicsPaused, setPhysicsPaused] = useState<boolean>(false);
+
+    useEffect(() => {
+        const handleVisibility = (): void => setPhysicsPaused(document.hidden);
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => document.removeEventListener('visibilitychange', handleVisibility);
+    }, []);
 
     useEffect(() => {
         const allLoaded = modelLoadedState && skyboxLoadedState;
         setModelLoaded(allLoaded);
     }, [modelLoadedState, skyboxLoadedState, setModelLoaded]);
 
-    // Lazy load skybox after model loads
     useEffect(() => {
         if (modelLoadedState && !loadSkybox) {
-            // Small delay to let model render first
             const timer = setTimeout(() => setLoadSkybox(true), 100);
             return () => clearTimeout(timer);
         }
@@ -403,50 +175,6 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
     useFrame((state: RootState) => {
         clockTimeRef.current = state.clock.getElapsedTime();
     });
-
-    const [initialBalloons, setInitialBalloons] = useState<BalloonData[]>(() =>
-        Array.from({ length: 60 }).map((_, index) => ({
-            position: getRandomPosition(),
-            color: getRandomColor(),
-            id: `initial-${index}`
-        }))
-    );
-
-    const removeBalloon = useCallback((balloonId: string): void => {
-        // Clean up meshToBodyRef Map to prevent memory leak
-        meshToBodyRef.current.forEach((_body, mesh) => {
-            if ((mesh as BalloonMesh).userData?.balloonId === balloonId) {
-                meshToBodyRef.current.delete(mesh);
-            }
-        });
-
-        if (balloonId.startsWith('initial-')) {
-            setInitialBalloons(prev => prev.filter(balloon => balloon.id !== balloonId));
-        } else {
-            setBalloons(prev => prev.filter(balloon => balloon.id !== balloonId));
-        }
-    }, []);
-
-    useEffect(() => {
-        if (balloonSpawnQueue.length > 0) {
-            balloonSpawnQueue.forEach(({ color, count }) => {
-                const currentTotalBalloons = initialBalloons.length + balloons.length;
-                const maxNewBalloons = Math.max(0, 400 - currentTotalBalloons);
-                const actualCount = Math.min(count, maxNewBalloons);
-
-                if (actualCount > 0) {
-                    const newBalloons: BalloonData[] = Array.from({ length: actualCount }).map(() => ({
-                        position: getRandomPosition(),
-                        color: color,
-                        id: Math.random().toString(36).substr(2, 9),
-                        spawning: true
-                    }));
-                    setBalloons(prev => [...prev, ...newBalloons]);
-                }
-            });
-            clearSpawnQueue();
-        }
-    }, [balloonSpawnQueue, clearSpawnQueue, initialBalloons.length, balloons.length]);
 
     useEffect(() => {
         const handleResize = (): void => {
@@ -473,7 +201,6 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
         const handleGlobalPointerMove = (event: PointerEvent): void => {
             lastEvent = event;
 
-            // Throttle with RAF - only process one event per frame
             if (rafId !== null) return;
 
             rafId = requestAnimationFrame(() => {
@@ -486,10 +213,7 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
                 const rapier = rapierRef.current;
 
                 if (rapier) {
-                    const canvas = document.querySelector('canvas');
-                    if (!canvas) return;
-
-                    const rect = canvas.getBoundingClientRect();
+                    const rect = gl.domElement.getBoundingClientRect();
 
                     if (evt.clientX < rect.left || evt.clientX > rect.right ||
                         evt.clientY < rect.top || evt.clientY > rect.bottom) {
@@ -499,26 +223,26 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
                     const x = evt.clientX - rect.left;
                     const y = evt.clientY - rect.top;
 
-                    const mouse = new THREE.Vector2(
+                    pointerRef.current.set(
                         (x / rect.width) * 2 - 1,
                         -(y / rect.height) * 2 + 1
                     );
 
-                    raycasterRef.current.setFromCamera(mouse, camera);
+                    raycasterRef.current.setFromCamera(pointerRef.current, camera);
 
                     const meshes = Array.from(meshToBodyRef.current.keys());
 
                     meshes.forEach(mesh => {
                         if (!mesh || !mesh.position) return;
 
-                        // Use pooled Vector3
                         const balloonWorldPos = vector3Pool.get();
                         mesh.getWorldPosition(balloonWorldPos);
 
-                        const sphere = new THREE.Sphere(balloonWorldPos, 3.0);
+                        tmpSphere.center.copy(balloonWorldPos);
+                        tmpSphere.radius = 3.0;
                         const intersectionPoint = vector3Pool.get();
 
-                        if (raycasterRef.current.ray.intersectSphere(sphere, intersectionPoint)) {
+                        if (raycasterRef.current.ray.intersectSphere(tmpSphere, intersectionPoint)) {
                             const rigidBody = meshToBodyRef.current.get(mesh);
 
                             if (rigidBody && rigidBody.isValid && rigidBody.isValid()) {
@@ -534,7 +258,7 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
                                 const forceIntensity = Math.max(0.3, 1 - distanceFromCenter / 3.0);
 
                                 pushDirection.normalize();
-                                const adjustedForceAmount = forceAmount * forceIntensity;
+                                const adjustedForceAmount = FORCE_AMOUNT * forceIntensity;
                                 pushDirection.multiplyScalar(adjustedForceAmount);
 
                                 pushDirection.y += adjustedForceAmount * 0.3;
@@ -563,13 +287,11 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
                                 rigidBody.applyTorqueImpulse(torque, true);
 
                                 if ((mesh as BalloonMesh).triggerWobble) {
-                                    // Clone for wobble but release originals
                                     const wobblePoint = intersectionPoint.clone();
                                     const wobbleDir = pushDirection.clone();
                                     (mesh as BalloonMesh).triggerWobble!(wobblePoint, wobbleDir, forceIntensity, clockTimeRef.current);
                                 }
 
-                                // Release pooled vectors
                                 vector3Pool.release(torqueDirection);
                                 vector3Pool.release(tempVec1);
                                 vector3Pool.release(tempVec2);
@@ -577,7 +299,6 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
                             }
                         }
 
-                        // Release pooled vectors
                         vector3Pool.release(balloonWorldPos);
                         vector3Pool.release(intersectionPoint);
                     });
@@ -592,7 +313,7 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
                 cancelAnimationFrame(rafId);
             }
         };
-    }, [camera, forceAmount]);
+    }, [camera, gl]);
 
     return (
         <>
@@ -607,38 +328,20 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
                 position={[-10, -10, -10]}
                 intensity={0.5}
             />
-            <Physics>
-                <Suspense>
-                    <Model setModelLoaded={setModelLoadedState} />
-                    {loadSkybox && <Skybox setSkyboxLoaded={setSkyboxLoadedState} />}
+            <ProgressForwarder />
+            <Suspense>
+                <Model setModelLoaded={setModelLoadedState} />
+                {loadSkybox && <Skybox setSkyboxLoaded={setSkyboxLoadedState} />}
+            </Suspense>
+            {(modelLoadedState && skyboxLoadedState) && (
+                <Suspense fallback={null}>
+                    <BalloonField
+                        meshToBodyRef={meshToBodyRef}
+                        rapierRef={rapierRef}
+                        physicsPaused={physicsPaused}
+                    />
                 </Suspense>
-                {(modelLoadedState && skyboxLoadedState) && (
-                    <>
-                        {initialBalloons.map((data) => (
-                            <Balloon
-                                key={data.id}
-                                id={data.id}
-                                position={data.position}
-                                color={data.color}
-                                meshToBodyRef={meshToBodyRef as MutableRefObject<Map<THREE.Mesh, RapierRigidBody>>}
-                                onRemove={removeBalloon}
-                            />
-                        ))}
-                        {balloons.map((data) => (
-                            <Balloon
-                                key={data.id}
-                                id={data.id}
-                                position={data.position}
-                                color={data.color}
-                                meshToBodyRef={meshToBodyRef as MutableRefObject<Map<THREE.Mesh, RapierRigidBody>>}
-                                spawning={data.spawning}
-                                onRemove={removeBalloon}
-                            />
-                        ))}
-                    </>
-                )}
-                <RapierProvider rapierRef={rapierRef} worldRef={worldRef} />
-            </Physics>
+            )}
             <OrbitControls
                 makeDefault
                 enablePan={false}
@@ -657,7 +360,7 @@ export default function Scene({ setModelLoaded }: SceneProps): React.ReactElemen
             height: '100%',
         }}>
             <Canvas
-                shadows
+                shadows={{ type: THREE.PCFShadowMap }}
                 gl={{
                     alpha: false
                 }}

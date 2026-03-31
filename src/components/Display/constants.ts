@@ -1,15 +1,22 @@
+import type { LanguageConfig } from '../../types';
+
 export const REPOS_PER_PAGE = 4;
 export const REPOS_PER_PAGE_MOBILE = 2;
+export const MAX_LANGUAGE_BADGES = 5;
 
-export const LANGUAGE_CONFIG = {
+export const LANGUAGE_CONFIG: LanguageConfig = {
     groups: {
         "JS Ecosystem": ["JavaScript", "TypeScript", "Svelte", "Vue", "Astro"],
-        "C Family": ["C", "C++", "HLSL", "GLSL", "WGSL"]
+        "C/C++": ["C", "C++"],
+        "Shaders": ["HLSL", "GLSL", "WGSL", "ShaderLab"],
+        "Shell": ["Shell", "Bash", "PowerShell", "Batchfile"],
+        "Python": ["Python", "Jupyter Notebook"],
     },
 
     colors: {
         'C#': '#178600',
-        'C Family': '#555555',
+        'C/C++': '#555555',
+        'Shaders': '#5686a5',
         'C': '#555555',
         'C++': '#f34b7d',
         'HLSL': '#aace60',
@@ -31,11 +38,12 @@ export const LANGUAGE_CONFIG = {
         'HTML': '#e34c26',
         'CSS': '#563d7c',
         'Shell': '#89e051',
+        'Bash': '#89e051',
         'PowerShell': '#012456',
         'Batchfile': '#C1F12E',
         'Dockerfile': '#384d54',
         'Makefile': '#427819',
         'CMake': '#DA3434',
         'Jupyter Notebook': '#DA5B0B',
-    }
-} as const;
+    } // github colors
+};

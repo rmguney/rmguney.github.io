@@ -1,4 +1,5 @@
 import { LANGUAGE_CONFIG } from './constants';
+import type { LanguageStat, Repository } from '../../types';
 
 const groupLookup: Record<string, string> = {};
 
@@ -14,30 +15,31 @@ export const LanguageUtils = {
     },
 
     getColor(language: string): string {
-        // @ts-ignore - Indexing into colors which might not have the key
         return LANGUAGE_CONFIG.colors[language] || '#fff';
     },
 
-    calculateStats(repos: any[]) {
+    normalizeName(language: string): string {
+        if (language === 'CSS' || language === 'HTML') return 'JavaScript';
+        if (language === 'ASP.NET') return 'C#';
+        return language;
+    },
+
+    aggregateStats(repos: Repository[], mapName: (language: string) => string): LanguageStat[] {
         const languages: Record<string, number> = {};
         let totalBytes = 0;
 
         repos.forEach(repo => {
             if (repo.languages) {
                 Object.entries(repo.languages).forEach(([language, bytes]) => {
-                    let langName = language;
-                    if (language === 'ShaderLab') langName = 'HLSL';
-                    if (language === 'CSS' || language === 'HTML') langName = 'JavaScript';
-                    if (language === 'ASP.NET') langName = 'C#';
-
-                    const displayName = this.getDisplayName(langName);
-                    languages[displayName] = (languages[displayName] || 0) + (bytes as number);
-                    totalBytes += (bytes as number);
+                    const name = mapName(this.normalizeName(language));
+                    languages[name] = (languages[name] || 0) + bytes;
+                    totalBytes += bytes;
                 });
             }
         });
 
         return Object.entries(languages)
+            .filter(([, bytes]) => (bytes / totalBytes) * 100 >= 0.1)
             .map(([language, bytes]) => ({
                 name: language,
                 bytes,
@@ -46,32 +48,38 @@ export const LanguageUtils = {
             .sort((a, b) => b.bytes - a.bytes);
     },
 
-    repoMatchesLanguage(repo: any, selectedLanguage: string): boolean {
+    calculateStats(repos: Repository[]): LanguageStat[] {
+        return this.aggregateStats(repos, language => this.getDisplayName(language));
+    },
+
+    calculateRawStats(repos: Repository[]): LanguageStat[] {
+        return this.aggregateStats(repos, language => language);
+    },
+
+    repoMatchesLanguage(repo: Repository, selectedLanguage: string): boolean {
         if (!repo.languages) return false;
 
-        // @ts-ignore
         const groupLanguages = LANGUAGE_CONFIG.groups[selectedLanguage];
         if (groupLanguages) {
-            return groupLanguages.some((lang: string) => repo.languages[lang]);
+            return groupLanguages.some((lang: string) => repo.languages[lang] !== undefined);
         }
 
-        return repo.languages[selectedLanguage] ||
+        return repo.languages[selectedLanguage] !== undefined ||
             Object.keys(repo.languages).some(lang =>
                 this.getDisplayName(lang) === selectedLanguage
             );
     },
 
-    repoMatchesOthers(repo: any, otherLanguages: string[]): boolean {
+    repoMatchesOthers(repo: Repository, otherLanguages: string[]): boolean {
         if (!repo.languages) return false;
 
         return otherLanguages.some(langName => {
-            // @ts-ignore
             const groupLanguages = LANGUAGE_CONFIG.groups[langName];
             if (groupLanguages) {
-                return groupLanguages.some((lang: string) => repo.languages[lang]);
+                return groupLanguages.some((lang: string) => repo.languages[lang] !== undefined);
             }
 
-            return repo.languages[langName] ||
+            return repo.languages[langName] !== undefined ||
                 Object.keys(repo.languages).some(lang =>
                     this.getDisplayName(lang) === langName
                 );

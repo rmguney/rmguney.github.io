@@ -1,6 +1,3 @@
-// Prefetch GitHub repos data immediately on app load
-// This allows the data to be ready when Display component mounts
-
 import type {
     Repository,
     RepoMetadata,
@@ -14,7 +11,6 @@ import type {
 const CACHE_KEY = 'github_repos_cache';
 const METADATA_KEY = 'github_repos_metadata';
 
-// Store the promise so multiple callers get the same result
 let fetchPromise: Promise<FetchReposResult> | null = null;
 let cachedResult: FetchReposResult | null = null;
 
@@ -38,7 +34,6 @@ const checkForChanges = (
     const oldMap = new Map(oldMetadata.map(r => [r.id, r]));
     const newMap = new Map(newMetadata.map(r => [r.id, r]));
 
-    // Check for new or updated repos
     for (const newRepo of newMetadata) {
         const oldRepo = oldMap.get(newRepo.id);
         if (!oldRepo) {
@@ -48,7 +43,6 @@ const checkForChanges = (
         }
     }
 
-    // Check for deleted repos
     for (const oldRepo of oldMetadata) {
         if (!newMap.has(oldRepo.id)) {
             details.deletedRepos.push(oldRepo.name);
@@ -91,17 +85,14 @@ interface GraphQLPinnedResponse {
 }
 
 export async function fetchReposData(): Promise<FetchReposResult> {
-    // Return cached result if we have it
     if (cachedResult) {
         return cachedResult;
     }
 
-    // Return existing promise if fetch is in progress
     if (fetchPromise) {
         return fetchPromise;
     }
 
-    // Start new fetch
     fetchPromise = (async () => {
         try {
             const token = import.meta.env.VITE_HUB_TOKEN;
@@ -112,7 +103,6 @@ export async function fetchReposData(): Promise<FetchReposResult> {
                 'Accept': 'application/vnd.github.v3+json'
             };
 
-            // STEP 1: Always fetch lightweight metadata to check for updates
             const metadataResponse = await fetch('https://api.github.com/users/rmguney/repos?per_page=50', { headers });
 
             if (!metadataResponse.ok) {
@@ -121,7 +111,6 @@ export async function fetchReposData(): Promise<FetchReposResult> {
 
             const metadataRepos: GitHubRepo[] = await metadataResponse.json();
 
-            // Extract minimal metadata for comparison
             const currentMetadata: RepoMetadata[] = metadataRepos
                 .filter(repo => !repo.fork)
                 .map(repo => ({
@@ -131,7 +120,6 @@ export async function fetchReposData(): Promise<FetchReposResult> {
                     pushed_at: repo.pushed_at
                 }));
 
-            // STEP 2: Check if we have cached data
             const cachedData = localStorage.getItem(CACHE_KEY);
             const cachedMetadataStr = localStorage.getItem(METADATA_KEY);
 
@@ -140,7 +128,6 @@ export async function fetchReposData(): Promise<FetchReposResult> {
                     const { repos: cachedRepos } = JSON.parse(cachedData) as CachedReposData;
                     const oldMetadata: RepoMetadata[] = JSON.parse(cachedMetadataStr);
 
-                    // Compare metadata to see if anything changed
                     const hasChanges = checkForChanges(oldMetadata, currentMetadata);
 
                     if (!hasChanges.changed) {
@@ -153,7 +140,6 @@ export async function fetchReposData(): Promise<FetchReposResult> {
                 }
             }
 
-            // STEP 3: Fetch full data (either no cache, or changes detected)
             const pinnedRepos = new Set<string>();
             if (token) {
                 try {
@@ -195,15 +181,7 @@ export async function fetchReposData(): Promise<FetchReposResult> {
                 }
             }
 
-            const response = await fetch('https://api.github.com/users/rmguney/repos?per_page=50', { headers });
-
-            if (!response.ok) {
-                throw new Error(`GitHub API error: ${response.status}`);
-            }
-
-            const data: GitHubRepo[] = await response.json();
-
-            const processedRepos: Repository[] = data
+            const processedRepos: Repository[] = metadataRepos
                 .filter(repo => !repo.fork)
                 .map(repo => ({
                     id: repo.id,
@@ -258,17 +236,6 @@ export async function fetchReposData(): Promise<FetchReposResult> {
                     }
 
                     try {
-                        const stargazersUrl = `https://api.github.com/repos/rmguney/${repoName}/stargazers`;
-                        const stargazersResponse = await fetch(stargazersUrl, { headers });
-                        if (stargazersResponse.ok) {
-                            const stargazersData: unknown[] = await stargazersResponse.json();
-                            repo.stars = Array.isArray(stargazersData) ? stargazersData.length : repo.stars;
-                        }
-                    } catch {
-                        // Error fetching stargazers
-                    }
-
-                    try {
                         const deploymentsUrl = `https://api.github.com/repos/rmguney/${repoName}/deployments`;
                         const deploymentsResponse = await fetch(deploymentsUrl, { headers });
                         if (deploymentsResponse.ok) {
@@ -309,7 +276,7 @@ export async function fetchReposData(): Promise<FetchReposResult> {
 
                 const totalImportance = baseImportance + ownerWatchingBias;
 
-                return repo.isPinned ? totalImportance * 1000000000000000000000 : totalImportance;
+                return repo.isPinned ? totalImportance * 1e21 : totalImportance;
             };
 
             processedRepos.forEach(repo => {
@@ -318,7 +285,6 @@ export async function fetchReposData(): Promise<FetchReposResult> {
 
             processedRepos.sort((a, b) => b.importanceFactor - a.importanceFactor);
 
-            // Cache the processed repos AND metadata
             try {
                 localStorage.setItem(CACHE_KEY, JSON.stringify({
                     repos: processedRepos,
@@ -343,5 +309,4 @@ export async function fetchReposData(): Promise<FetchReposResult> {
     return fetchPromise;
 }
 
-// Start prefetching immediately when this module is imported
-export const prefetchPromise = fetchReposData();
+void fetchReposData();

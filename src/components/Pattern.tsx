@@ -39,17 +39,24 @@ const Pattern: React.FC<PatternProps> = ({ size = 30 }) => {
     return (
         <div className="relative">
             <div
-                className={`items-center top-[135px] space-y-[24px] relative hidden lg:block`}
+                className={`items-center top-135px space-y-24px relative hidden lg:block`}
                 style={{ zIndex: -1, filter: 'blur(0.5px)', opacity: 0.6 }}
             >
                 {pattern.map((line, lineIndex) => (
                     <div
                         key={lineIndex}
-                        className="flex justify-center items-center space-x-[24px]"
+                        className="flex justify-center items-center space-x-24px"
                     >
                         {line.map((iconSrc, iconIndex) => (
                             <div key={`${lineIndex}-${iconIndex}`}>
-                                <img src={iconSrc} alt="" width={size} height={size} />
+                                <img
+                                    src={iconSrc}
+                                    alt=""
+                                    width={size * 2}
+                                    height={size * 2}
+                                    className="object-contain"
+                                    style={{ width: size, height: size }}
+                                />
                             </div>
                         ))}
                     </div>

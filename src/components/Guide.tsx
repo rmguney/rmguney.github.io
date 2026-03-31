@@ -62,7 +62,7 @@ const Guide: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 0.5 }}
-            className="z-[99] hidden md:flex flex-row items-center gap-2 absolute bottom-20 right-14"
+            className="z-99 hidden md:flex flex-row items-center gap-2 absolute bottom-20 right-14"
         >
             <motion.div
                 className="relative group"

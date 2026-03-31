@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { RapierRigidBody } from '@react-three/rapier';
-import type { ReactNode, MutableRefObject } from 'react';
+import type { ReactNode, ReactElement, RefObject } from 'react';
 
 // ============================================
 // Balloon Context Types
@@ -40,7 +40,7 @@ export interface BalloonData {
 export interface BalloonProps {
     position: [number, number, number];
     color: string;
-    meshToBodyRef: MutableRefObject<Map<THREE.Mesh, RapierRigidBody>>;
+    meshToBodyRef: RefObject<Map<THREE.Mesh, RapierRigidBody>>;
     spawning?: boolean;
     onRemove?: (id: string) => void;
     id: string;
@@ -64,8 +64,7 @@ export interface Scene3DProps {
 }
 
 export interface RapierProviderProps {
-    rapierRef: MutableRefObject<unknown>;
-    worldRef: MutableRefObject<import('@dimforge/rapier3d-compat').World | null>;
+    rapierRef: RefObject<unknown>;
 }
 
 // ============================================
@@ -73,7 +72,8 @@ export interface RapierProviderProps {
 // ============================================
 
 export interface BalloonIconData {
-    img: string;
+    icon: ReactElement;
+    hoverColor?: string;
     name: string;
     description: string;
     sceneColor: string;
@@ -191,12 +191,6 @@ export interface PatternProps {
 }
 
 // ============================================
-// Loading Component Types
-// ============================================
-
-// Loading component doesn't require additional types
-
-// ============================================
 // Markdown Component Types
 // ============================================
 
@@ -238,12 +232,6 @@ export interface WobbleState {
 export interface LastImpact {
     point: THREE.Vector3;
     time: number;
-}
-
-export interface DeformationState {
-    x: number;
-    y: number;
-    z: number;
 }
 
 export interface RotationState {

@@ -1,16 +1,14 @@
-// @ts-nocheck
 import React, { useMemo } from 'react';
-import { LANGUAGE_CONFIG } from './constants';
+import { LANGUAGE_CONFIG, MAX_LANGUAGE_BADGES } from './constants';
 import { LanguageUtils } from './LanguageUtils';
+import type { LanguageStat, Repository } from '../../types';
 
 interface LanguageFilterProps {
-    allLanguageStats: any[];
+    allLanguageStats: LanguageStat[];
     selectedLanguage: string | null;
     setSelectedLanguage: (lang: string | null) => void;
-    allRepos: any[];
+    allRepos: Repository[];
 }
-
-const OTHERS_THRESHOLD = 5;
 
 const LanguageFilter: React.FC<LanguageFilterProps> = ({
     allLanguageStats,
@@ -19,23 +17,25 @@ const LanguageFilter: React.FC<LanguageFilterProps> = ({
     allRepos
 }) => {
     const { majorLanguages, minorLanguages, othersPercentage } = useMemo(() => {
-        const major = allLanguageStats.filter(lang => lang.percentage >= OTHERS_THRESHOLD);
-        const minor = allLanguageStats.filter(lang => lang.percentage < OTHERS_THRESHOLD);
+        const major = allLanguageStats.slice(0, MAX_LANGUAGE_BADGES);
+        const majorNames = new Set(major.map(lang => lang.name));
+        // "Other" lists actual languages, not groups — grouping only applies to the top badges
+        const minor = LanguageUtils.calculateRawStats(allRepos)
+            .filter(lang => !majorNames.has(LanguageUtils.getDisplayName(lang.name)));
         const othersPercent = minor.reduce((sum, lang) => sum + lang.percentage, 0);
         return { majorLanguages: major, minorLanguages: minor, othersPercentage: othersPercent };
-    }, [allLanguageStats]);
+    }, [allLanguageStats, allRepos]);
 
     return (
         <div
             className="flex items-center justify-center flex-wrap gap-2 px-4 md:px-1 lg:justify-start"
         >
             {majorLanguages.map(lang => {
-                // @ts-ignore
                 const groupedLanguages = LANGUAGE_CONFIG.groups[lang.name];
 
                 const existingGroupedLanguages = groupedLanguages
-                    ? groupedLanguages.filter((subLang: any) =>
-                        allRepos.some(repo => repo.languages && repo.languages[subLang])
+                    ? groupedLanguages.filter((subLang: string) =>
+                        allRepos.some(repo => repo.languages && repo.languages[subLang] !== undefined)
                     )
                     : [];
 
@@ -64,9 +64,9 @@ const LanguageFilter: React.FC<LanguageFilterProps> = ({
                   opacity-0 group-hover/filter:opacity-100 pointer-events-none 
                   transition-opacity duration-500 z-50
                   border border-white/10 shadow-lg whitespace-nowrap">
-                                <div className="flex flex-row items-center gap-3">
+                                <div className="flex flex-row items-center gap-1.5">
                                     <span className="text-white/50 text-[9px]">Linguist:</span>
-                                    {existingGroupedLanguages.map((subLang: any) => (
+                                    {existingGroupedLanguages.map((subLang) => (
                                         <span key={subLang} className="flex items-center">
                                             <span
                                                 className="inline-block w-1.5 h-1.5 rounded-full mr-0.5"
@@ -102,9 +102,9 @@ const LanguageFilter: React.FC<LanguageFilterProps> = ({
                   opacity-0 group-hover/filter:opacity-100 pointer-events-none 
                   transition-opacity duration-500 z-50
                   border border-white/10 shadow-lg whitespace-nowrap">
-                        <div className="flex flex-row items-center gap-3">
+                        <div className="flex flex-row items-center gap-1.5">
                             <span className="text-white/50 text-[9px]">Linguist:</span>
-                            {minorLanguages.filter((lang: any) => lang.percentage > 0).map((lang: any) => (
+                            {minorLanguages.map((lang) => (
                                 <span key={lang.name} className="flex items-center">
                                     <span
                                         className="inline-block w-1.5 h-1.5 rounded-full mr-0.5"
