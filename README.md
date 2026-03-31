@@ -4,72 +4,98 @@ Personal portfolio website featuring an immersive 3D environment with physics-ba
 
 ## Technical Architecture
 
-### 3D Graphics & Physics Engine
+### Rendering Pipeline
 
-Built on **React Three Fiber** (R3F), a React renderer for Three.js that provides declarative 3D scene composition. The physics simulation is powered by **@react-three/rapier**, which wraps the Rapier physics engine to deliver real-time rigid body dynamics.
+Built on **React Three Fiber** over **Three.js**, rendering through **WebGPURenderer** with automatic WebGL2 fallback. The classic `WebGLRenderer` is excluded from the bundle via a module shim, so only one renderer ships.
 
-**Key 3D Features:**
+- **Dual Shader Sources**: Hand-written **WGSL** and **GLSL** kept in lockstep, selected at runtime from the active backend, no TSL abstraction layer
+- **Cel Shading**: Lambert quantization into discrete bands with a symmetric smoothstep edge, applied through `material.outputNode` so it replaces material output rather than post-processing the frame
+- **Rim Lighting**: Fresnel term with independent power and strength per surface type
 
-- **GLTF Model Integration**: Dual model system with main scene model and rotating skybox, featuring automatic shadow casting/receiving and tone mapping optimization
-- **Interactive Balloon Physics**: Physics-enabled balloons with realistic buoyancy, wind forces, and collision detection
-- **Mouse Interaction System**: Real-time balloon manipulation with proximity-based force application and visual deformation
-- **Camera Controls**: Orbital camera system with responsive positioning and interaction boundaries
+### Physics & Interaction
 
-### State Management & Context Architecture
+Physics is powered by **@react-three/rapier** wrapping the Rapier engine.
 
-**React Context** system for global state management:
+- **Framerate-Independent Simulation**: Fixed-timestep accumulator with impulses applied in `useBeforePhysicsStep`
+- **Balloon Dynamics**: Buoyancy, layered wind forces, and torque, with explicit `BallCollider` sizing so spawn animations cannot alter mass
+- **Mouse Interaction**: Proximity-based force application with impact-driven wobble deformation
+- **Idle Jiggle**: Per-balloon deformation on incommensurate axis frequencies, composed over the wobble rather than accumulated into it
+- **Camera**: Orbital controls with responsive positioning and constrained polar angles
 
-- **Framework Showcase**: Dynamic balloon spawning triggered by framework icon interactions managed through context
-- **Loading State Management**: Synchronized loading tracking for multiple 3D assets
+### Adaptive UI
 
-### Animation & Interaction Systems
+Overlay text and icons sample the scene behind them and switch between pure black and white.
 
-**Framer Motion** powers sophisticated animation sequences:
+- **Zero-Readback Sampling**: The skybox texture is reduced to a luminance map once at load; screen positions are resolved by analytic ray–sphere intersection against the fitted UV convention, so no framebuffer readback is ever performed
+- **Hysteresis**: A threshold band prevents oscillation when the backdrop sits near mid-grey
+- **Independent Regions**: Hero and guide sample their own screen areas and flip separately
 
-- **Staggered Component Loading**: Sequential element reveals with intersection observer triggers
-- **Interactive Text Elements**: Hover animations for LinkedIn integration with spring physics
-- **Framework Showcase**: Grid-based framework icon display with individual hover effects and balloon spawning
-- **Wobble Physics**: Advanced balloon deformation system with impact-based animations
+### Asset Pipeline
 
-### Performance Optimizations
+- **Progressive Skybox**: A compressed preview renders immediately while the full-resolution asset loads behind it on its own `LoadingManager`, so the upgrade never re-enters the loading gate
+- **Mobile Budget**: Small viewports skip the full-resolution upgrade entirely
+- **Draco + WebP**: Geometry and texture compression throughout, with meshoptimizer decimation on the main model
+- **Cache Busting**: A build-time asset version is appended to model URLs so replaced binaries can never be served stale
 
-- **Distance Culling**: Automatic balloon cleanup system preventing performance degradation
-- **Dual Model Loading**: Coordinated loading system for main model and skybox assets
-- **Component Lazy Loading**: `Suspense` boundaries for 3D scene initialization
-- **Memory Management**: Proper cleanup of physics bodies, animation loops, and event listeners
-- **Conditional Rendering**: All scene components only appear after complete scene loading
+### Loading
 
-### Build System & Deployment
+- **Weighted Phase Bus**: Monotonic progress aggregated across assets, scene readiness, and repository fetch
+- **Reveal Gate**: The projects view stays hidden until every phase completes
+- **Lazy Boundaries**: Scene and projects are separate code-split chunks behind `Suspense`
 
-**Vite** configuration optimized for static export with automated CI/CD:
+### State Management
 
-- **Static Generation**: Pre-rendered pages for optimal loading performance
-- **Asset Optimization**: GLTF model loading with automatic caching
-- **PostCSS Pipeline**: TailwindCSS processing with custom utility classes
-- **Environment Configuration**: Development and production build optimization
-- **GitHub Actions**: Automated CI/CD with npm caching and GitHub Pages deployment
-- **Build Validation**: Automated testing and deployment pipeline with artifact management
-- **Deployment Automation**: Push-to-deploy workflow with automated static site generation
+**React Context** for global state:
 
-### Responsive Design Strategy
+- **Framework Showcase**: Balloon spawning triggered by tech icon interactions
+- **Material Pooling**: Materials are pre-warmed per palette colour after backend selection, so spawning compiles no shaders
 
-**TailwindCSS** utility-first approach with:
+### Animation
+
+**Framer Motion** powers the interface animations:
+
+- **Staggered Reveals**: Sequential element entry with intersection observer triggers
+- **Interactive Text**: Hover animations with spring physics
+- **Icon Grid**: Individual hover effects with brand-coloured feedback
+
+### Audit Suite
+
+TypeScript checks run directly through Node with `npm run test:audit`, or individually:
+
+| Command | Coverage |
+| --- | --- |
+| `test:lighthouse` | Performance, accessibility, best practices, SEO across WebGPU/WebGL2 × desktop/mobile |
+| `test:console` | Production console cleanliness on both backends |
+| `test:console:dev` | Dev server console cleanliness |
+| `test:dependabot` | Dependabot config and open alerts |
+| `test:npm-audit` | Dependency vulnerabilities |
+
+### Build & Deployment
+
+**Vite** with **TypeScript** and **TailwindCSS 4** (via its Vite plugin, no PostCSS pipeline):
+
+- **Client-Rendered SPA**: Static bundle output, deployed to GitHub Pages
+- **PWA**: Service worker with precache manifest via `injectManifest`
+- **GitHub Actions**: Push-to-deploy with npm caching
+- **Source Maps**: Emitted for production debugging
+
+### Responsive Design
 
 - **Mobile-First Breakpoints**: Adaptive layouts from mobile to desktop
-- **Touch-Friendly Interactions**: Optimized balloon interactions for mobile devices
-- **Fluid Typography**: Responsive text scaling with professional typography
-- **Grid System**: CSS Grid and Flexbox for complex certification layout
+- **Responsive Camera**: Position adjusts across breakpoints to preserve framing
+- **Touch-Friendly Interactions**: Balloon interactions tuned for mobile
+- **Stable Scrollbar Gutter**: Reserved to prevent canvas resize jitter
 
 ### Usage and Interaction
 
-**3D Environment Interaction:**
+**3D Environment:**
 
-- Hover over balloons to apply physics forces and trigger wobble animations
-- Orbital camera controls for 3D scene exploration
-- Interactive balloon spawning via framework showcase
+- Hover over balloons to apply physics forces and trigger wobble
+- Drag to orbit the camera
+- Click tech icons to spawn colour-matched balloons
 
-**Professional Portfolio Navigation:**
+**Portfolio Navigation:**
 
-- Certificate hover effects with color-coded balloon spawning
-- LinkedIn profile integration with hover animations
-- GitHub repository access via animated social links
+- Dynamic API fetched GitHub projects browser with language filtering and pagination
+- GitHub repository and deployment access via animated links
+- All consolidated to an interactive game console interface with navigation and action buttons

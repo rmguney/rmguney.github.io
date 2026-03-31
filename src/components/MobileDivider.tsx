@@ -78,7 +78,7 @@ const MobileDivider: React.FC = () => {
     };
 
     return (
-        <div className="absolute -bottom-1 w-full flex flex-col justify-between items-center p-5 bg-[#111111] z-[998] lg:hidden">
+        <div className="absolute -bottom-1 w-full flex flex-col justify-between items-center p-5 bg-[#111111] z-998 lg:hidden">
             <div className="flex flex-col items-center cursor-pointer" onClick={handleClick}>
                 {isInUpperHalf ? <FaCaretDown className="text-white" size="20" /> : <FaCaretUp className="text-white" size="20" />}
             </div>

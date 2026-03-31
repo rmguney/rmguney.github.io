@@ -1,18 +1,22 @@
-import { PiMouseLeftClickFill } from "react-icons/pi";
+﻿import { PiMouseLeftClickFill } from "react-icons/pi";
 import { RiDragMove2Line } from "react-icons/ri";
 import { FiPlus } from "react-icons/fi";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useAdaptiveInk } from "../hooks/useAdaptiveInk";
 import type { HoveredIcons, IconColors } from "../types";
 
 const Guide: React.FC = () => {
+    const rootRef = useRef<HTMLDivElement>(null);
+    const ink = useAdaptiveInk(rootRef);
+
     const [hoveredIcons, setHoveredIcons] = useState<HoveredIcons>({
         click: false,
         plus: false,
         drag: false
     });
 
-    const balloonColors: string[] = ["#fdaea4", "#67e8f9", "#fef08a"];
+    const balloonColors: string[] = ["#ffc6b5", "#b2faff", "#fffba4"];
 
     const [iconColors, setIconColors] = useState<IconColors>({
         click: balloonColors[0],
@@ -59,10 +63,12 @@ const Guide: React.FC = () => {
 
     return (
         <motion.div
+            ref={rootRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 0.5 }}
-            className="z-[99] hidden md:flex flex-row items-center gap-2 absolute bottom-20 right-14"
+            className="z-99 hidden md:flex flex-row items-center gap-2 absolute bottom-20 right-14"
+            style={{ color: ink }}
         >
             <motion.div
                 className="relative group"
@@ -86,7 +92,7 @@ const Guide: React.FC = () => {
             >
                 <PiMouseLeftClickFill
                     size={25}
-                    className="text-[#0f0f0f] transition-all hidden lg:block cursor-help"
+                    className="transition-all hidden lg:block cursor-help"
                 />
                 <span
                     className="absolute -top-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-xs transition-opacity whitespace-nowrap pointer-events-none"
@@ -118,7 +124,7 @@ const Guide: React.FC = () => {
             >
                 <FiPlus
                     size={15}
-                    className="text-[#0f0f0f] transition-all cursor-help"
+                    className="transition-all cursor-help"
                 />
                 <span
                     className="absolute -top-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-xs transition-opacity whitespace-nowrap pointer-events-none"
@@ -150,7 +156,7 @@ const Guide: React.FC = () => {
             >
                 <RiDragMove2Line
                     size={25}
-                    className="text-[#0f0f0f] transition-all cursor-help"
+                    className="transition-all cursor-help"
                 />
                 <span
                     className="absolute -top-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-xs transition-opacity whitespace-nowrap pointer-events-none"
@@ -164,3 +170,4 @@ const Guide: React.FC = () => {
 };
 
 export default Guide;
+

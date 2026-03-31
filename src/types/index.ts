@@ -1,10 +1,6 @@
-import * as THREE from 'three';
+﻿import * as THREE from 'three';
 import type { RapierRigidBody } from '@react-three/rapier';
-import type { ReactNode, MutableRefObject } from 'react';
-
-// ============================================
-// Balloon Context Types
-// ============================================
+import type { ReactElement, RefObject } from 'react';
 
 export interface BalloonSpawnRequest {
     color: string;
@@ -26,10 +22,6 @@ export interface BalloonContextValue {
     clearSpawnQueue: () => void;
 }
 
-// ============================================
-// Scene Component Types
-// ============================================
-
 export interface BalloonData {
     position: [number, number, number];
     color: string;
@@ -40,7 +32,7 @@ export interface BalloonData {
 export interface BalloonProps {
     position: [number, number, number];
     color: string;
-    meshToBodyRef: MutableRefObject<Map<THREE.Mesh, RapierRigidBody>>;
+    meshToBodyRef: RefObject<Map<THREE.Object3D, RapierRigidBody>>;
     spawning?: boolean;
     onRemove?: (id: string) => void;
     id: string;
@@ -64,31 +56,14 @@ export interface Scene3DProps {
 }
 
 export interface RapierProviderProps {
-    rapierRef: MutableRefObject<unknown>;
-    worldRef: MutableRefObject<import('@dimforge/rapier3d-compat').World | null>;
+    rapierRef: RefObject<unknown>;
 }
-
-// ============================================
-// Hero Component Types
-// ============================================
 
 export interface BalloonIconData {
-    img: string;
+    icon: ReactElement;
+    color: string;
     name: string;
-    description: string;
-    sceneColor: string;
-    nameClassName: string;
-    balloonOptions: {
-        count: number;
-        speed: number;
-        size?: number;
-        rotation: boolean;
-    };
 }
-
-// ============================================
-// Guide Component Types
-// ============================================
 
 export interface HoveredIcons {
     click: boolean;
@@ -101,10 +76,6 @@ export interface IconColors {
     plus: string;
     drag: string;
 }
-
-// ============================================
-// Display/GameBoy Component Types
-// ============================================
 
 export interface RepoLanguages {
     [language: string]: number;
@@ -154,79 +125,14 @@ export interface LanguageConfig {
     colors: LanguageColors;
 }
 
-export interface RepoMetadata {
-    id: number;
-    name: string;
-    updated_at: string;
-    pushed_at: string;
-}
-
-export interface CachedReposData {
-    repos: Repository[];
-    timestamp: number;
-}
-
 export interface FetchReposResult {
     repos: Repository[];
     fromCache: boolean;
 }
 
-export interface ChangeDetails {
-    newRepos: string[];
-    updatedRepos: string[];
-    deletedRepos: string[];
-}
-
-export interface ChangeCheckResult {
-    changed: boolean;
-    details: ChangeDetails;
-}
-
-// ============================================
-// Pattern Component Types
-// ============================================
-
 export interface PatternProps {
     size?: number;
 }
-
-// ============================================
-// Loading Component Types
-// ============================================
-
-// Loading component doesn't require additional types
-
-// ============================================
-// Markdown Component Types
-// ============================================
-
-export interface MarkdownCodeProps {
-    node?: unknown;
-    inline?: boolean;
-    className?: string;
-    children?: ReactNode;
-}
-
-export interface MarkdownLinkProps {
-    node?: unknown;
-    href?: string;
-    children?: ReactNode;
-}
-
-export interface MarkdownImageProps {
-    node?: unknown;
-    src?: string;
-    alt?: string;
-}
-
-export interface MarkdownBaseProps {
-    node?: unknown;
-    children?: ReactNode;
-}
-
-// ============================================
-// Wobble Effect Types (for Balloon)
-// ============================================
 
 export interface WobbleState {
     x: number;
@@ -240,21 +146,11 @@ export interface LastImpact {
     time: number;
 }
 
-export interface DeformationState {
-    x: number;
-    y: number;
-    z: number;
-}
-
 export interface RotationState {
     x: number;
     y: number;
     z: number;
 }
-
-// ============================================
-// Vector3 Pool Types
-// ============================================
 
 export interface IVector3Pool {
     get(): THREE.Vector3;
@@ -262,11 +158,7 @@ export interface IVector3Pool {
     releaseAll(): void;
 }
 
-// ============================================
-// Extended Mesh Type with custom properties
-// ============================================
-
-export interface BalloonMesh extends THREE.Mesh {
+export interface BalloonMesh extends THREE.Group {
     userData: {
         balloonId?: string;
     };
@@ -277,3 +169,4 @@ export interface BalloonMesh extends THREE.Mesh {
         currentTime: number
     ) => void;
 }
+

@@ -45,11 +45,18 @@ const Pattern: React.FC<PatternProps> = ({ size = 30 }) => {
                 {pattern.map((line, lineIndex) => (
                     <div
                         key={lineIndex}
-                        className="flex justify-center items-center space-x-[24px]"
+                        className="flex justify-center items-center space-x-24px"
                     >
                         {line.map((iconSrc, iconIndex) => (
                             <div key={`${lineIndex}-${iconIndex}`}>
-                                <img src={iconSrc} alt="" width={size} height={size} />
+                                <img
+                                    src={iconSrc}
+                                    alt=""
+                                    width={size * 2}
+                                    height={size * 2}
+                                    className="object-contain"
+                                    style={{ width: size, height: size }}
+                                />
                             </div>
                         ))}
                     </div>

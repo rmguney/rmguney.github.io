@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+html {
+  scrollbar-gutter: stable;
+}
 
 html,
 body {
@@ -9,4 +11,8 @@ body {
 
 .group:hover svg {
   color: var(--hover-color) !important;
+}
+
+.group:hover .dotnet-glyph svg {
+  color: #ffffff !important;
 }
