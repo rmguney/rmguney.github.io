@@ -32,7 +32,7 @@
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.182.0",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.4",
     "autoprefixer": "^10.4.20",
     "lighthouse": "^13.4.1",
     "playwright": "^1.61.1",
