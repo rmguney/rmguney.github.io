@@ -11,6 +11,17 @@ import ProjectCard from './ProjectCard';
 import GameBoyConsole from './GameBoyConsole';
 import LanguageFilter from './LanguageFilter';
 
+const EMBED_GUARD_KEY = 'embed_crash_guard';
+const CRASHED_EMBEDS_KEY = 'crashed_embeds';
+
+const readCrashedEmbeds = (): string[] => {
+    try {
+        return JSON.parse(localStorage.getItem(CRASHED_EMBEDS_KEY) || '[]');
+    } catch {
+        return [];
+    }
+};
+
 const GameBoy = React.memo(function GameBoy() {
     const [allRepos, setAllRepos] = useState<Repository[]>([]);
     const [displayedRepos, setDisplayedRepos] = useState<Repository[]>([]);
@@ -49,6 +60,51 @@ const GameBoy = React.memo(function GameBoy() {
 
     const [readmeContent, setReadmeContent] = useState('');
     const [readmeLoading, setReadmeLoading] = useState(false);
+
+    const [crashedEmbeds, setCrashedEmbeds] = useState<string[]>(readCrashedEmbeds);
+    const [pendingCrashRestore, setPendingCrashRestore] = useState<string | null>(null);
+    const consoleRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const crashed = sessionStorage.getItem(EMBED_GUARD_KEY);
+        if (!crashed) return;
+        sessionStorage.removeItem(EMBED_GUARD_KEY);
+        setCrashedEmbeds(prev => {
+            if (prev.includes(crashed)) return prev;
+            const next = [...prev, crashed];
+            try { localStorage.setItem(CRASHED_EMBEDS_KEY, JSON.stringify(next)); } catch { }
+            return next;
+        });
+        setPendingCrashRestore(crashed);
+    }, []);
+
+    const activeRepo = activeIndex !== null ? displayedRepos[activeIndex] : undefined;
+    const embeddedRepoName = cartridgeSelected && currentWebsite && activeRepo
+        && !activeRepo.isGithubPage && !activeRepo.isPortfolio && !crashedEmbeds.includes(activeRepo.name)
+        ? activeRepo.name
+        : null;
+
+    useEffect(() => {
+        if (!embeddedRepoName) return;
+        const setGuard = () => {
+            try { sessionStorage.setItem(EMBED_GUARD_KEY, embeddedRepoName); } catch { }
+        };
+        const clearGuard = () => {
+            try { sessionStorage.removeItem(EMBED_GUARD_KEY); } catch { }
+        };
+        const handleVisibility = () => {
+            if (document.visibilityState === 'hidden') clearGuard();
+            else setGuard();
+        };
+        setGuard();
+        document.addEventListener('visibilitychange', handleVisibility);
+        window.addEventListener('pagehide', clearGuard);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibility);
+            window.removeEventListener('pagehide', clearGuard);
+            clearGuard();
+        };
+    }, [embeddedRepoName]);
 
     const [isSmallScreen, setIsSmallScreen] = useState(false);
 
@@ -169,6 +225,27 @@ const GameBoy = React.memo(function GameBoy() {
     }, [currentPage, allRepos, filteredRepos, selectedLanguage, isSmallScreen]);
 
     useEffect(() => {
+        if (!pendingCrashRestore || allRepos.length === 0 || displayedRepos.length === 0) return;
+        const globalIdx = allRepos.findIndex(repo => repo.name === pendingCrashRestore);
+        if (globalIdx === -1) {
+            setPendingCrashRestore(null);
+            return;
+        }
+        const localIdx = displayedRepos.findIndex(repo => repo.name === pendingCrashRestore);
+        if (localIdx === -1) {
+            const perPage = isSmallScreen ? REPOS_PER_PAGE_MOBILE : REPOS_PER_PAGE;
+            setCurrentPage(Math.floor(globalIdx / perPage) + 1);
+            return;
+        }
+        setActiveIndex(localIdx);
+        setCartridgeSelected(true);
+        setPendingCrashRestore(null);
+        setTimeout(() => {
+            consoleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 150);
+    }, [pendingCrashRestore, allRepos, displayedRepos, isSmallScreen]);
+
+    useEffect(() => {
         const timer = setTimeout(() => {
             resetAllCardTransforms();
         }, 50);
@@ -213,14 +290,15 @@ const GameBoy = React.memo(function GameBoy() {
         const README_CACHE_TTL = 60 * 60 * 1000;
 
         const fetchReadme = async () => {
-            if (activeIndex === null || (!displayedRepos[activeIndex]?.isGithubPage && !displayedRepos[activeIndex]?.isPortfolio)) {
+            const selected = activeIndex !== null ? displayedRepos[activeIndex] : undefined;
+            if (!selected || (!selected.isGithubPage && !selected.isPortfolio && !crashedEmbeds.includes(selected.name))) {
                 setReadmeContent('');
                 return;
             }
 
             try {
                 setReadmeLoading(true);
-                const repoUrl = displayedRepos[activeIndex].githubUrl;
+                const repoUrl = selected.githubUrl;
                 const urlParts = repoUrl.split('/');
                 const owner = urlParts[urlParts.length - 2];
                 const repo = urlParts[urlParts.length - 1];
@@ -275,7 +353,7 @@ const GameBoy = React.memo(function GameBoy() {
         };
 
         fetchReadme();
-    }, [activeIndex, displayedRepos]);
+    }, [activeIndex, displayedRepos, crashedEmbeds]);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -665,6 +743,8 @@ const GameBoy = React.memo(function GameBoy() {
                     handleAButtonClick={handleAButtonClick}
                     handleBButtonClick={handleBButtonClick}
                     iframeRef={iframeRef}
+                    crashedEmbeds={crashedEmbeds}
+                    consoleRef={consoleRef}
                 />
             </div>
         </div>

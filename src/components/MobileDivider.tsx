@@ -4,23 +4,23 @@ import { useState, useEffect, useRef } from 'react';
 const MobileDivider: React.FC = () => {
     const [isInUpperHalf, setIsInUpperHalf] = useState<boolean>(true);
     const animationFrameId = useRef<number | null>(null);
+    const rootRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         const handleScroll = (): void => {
-            const scrollTop = window.scrollY;
-            const windowHeight = window.innerHeight;
-            const documentHeight = document.documentElement.scrollHeight;
-
-            const scrollableDistance = documentHeight - windowHeight;
-            const scrollProgress = scrollTop / scrollableDistance;
-
-            setIsInUpperHalf(scrollProgress < 0.3);
+            const el = rootRef.current;
+            if (!el) return;
+            setIsInUpperHalf(el.getBoundingClientRect().top > window.innerHeight / 2);
         };
 
-        window.addEventListener('scroll', handleScroll);
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        window.addEventListener('resize', handleScroll);
         handleScroll();
 
-        return () => window.removeEventListener('scroll', handleScroll);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('resize', handleScroll);
+        };
     }, []);
 
     const cancelScroll = (): void => {
@@ -71,14 +71,14 @@ const MobileDivider: React.FC = () => {
 
     const handleClick = (): void => {
         if (isInUpperHalf) {
-            smoothScroll(document.documentElement.scrollHeight);
+            smoothScroll(document.documentElement.scrollHeight - window.innerHeight);
         } else {
             smoothScroll(0);
         }
     };
 
     return (
-        <div className="absolute -bottom-1 w-full flex flex-col justify-between items-center p-5 bg-[#111111] z-998 lg:hidden">
+        <div ref={rootRef} className="absolute -bottom-1 w-full flex flex-col justify-between items-center p-5 bg-[#111111] z-998 lg:hidden">
             <div className="flex flex-col items-center cursor-pointer" onClick={handleClick}>
                 {isInUpperHalf ? <FaCaretDown className="text-white" size="20" /> : <FaCaretUp className="text-white" size="20" />}
             </div>

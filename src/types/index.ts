@@ -38,8 +38,34 @@ export interface BalloonProps {
     id: string;
 }
 
+export interface ModelPokeHandle {
+    center: THREE.Vector3;
+    radius: number;
+    push: (direction: THREE.Vector3, strength: number) => void;
+    look: (yaw: number, pitch: number) => void;
+}
+
+export interface ModelColliderShape {
+    vertices: Float32Array;
+    indices: Uint32Array;
+}
+
+export interface ModelColliderHandle {
+    position: THREE.Vector3;
+    quaternion: THREE.Quaternion;
+}
+
 export interface ModelProps {
     setModelLoaded: (loaded: boolean) => void;
+    pokeRef: RefObject<ModelPokeHandle | null>;
+    colliderRef: RefObject<ModelColliderHandle | null>;
+    setColliderShape: (shape: ModelColliderShape) => void;
+}
+
+export interface ModelColliderProps {
+    shape: ModelColliderShape;
+    handleRef: RefObject<ModelColliderHandle | null>;
+    pokeRef: RefObject<ModelPokeHandle | null>;
 }
 
 export interface SkyboxProps {

@@ -12,10 +12,38 @@ import { fetchReposData } from './utils/prefetchRepos';
 const Scene = lazy(() => import("./components/Scene"));
 const Projects = lazy(() => import("./components/Projects"));
 
+interface SceneBoundaryProps {
+    onError: () => void;
+    children: React.ReactNode;
+}
+
+class SceneBoundary extends React.Component<SceneBoundaryProps, { failed: boolean }> {
+    state = { failed: false };
+
+    static getDerivedStateFromError(): { failed: boolean } {
+        return { failed: true };
+    }
+
+    componentDidCatch(error: unknown): void {
+        console.error('Scene failed, continuing without 3D', error);
+        this.props.onError();
+    }
+
+    render(): React.ReactNode {
+        return this.state.failed ? <div className="w-full h-full" /> : this.props.children;
+    }
+}
+
 export default function App(): React.ReactElement {
     const [sceneLoaded, setSceneLoaded] = useState<boolean>(false);
     const [reposLoaded, setReposLoaded] = useState<boolean>(false);
     const [revealed, setRevealed] = useState<boolean>(false);
+
+    const handleSceneError = React.useCallback((): void => {
+        loadProgress.setPhase('assets', 1);
+        loadProgress.setPhase('scene', 1);
+        setSceneLoaded(true);
+    }, []);
 
     useEffect(() => {
         let active = true;
@@ -48,12 +76,14 @@ export default function App(): React.ReactElement {
     return (
         <BalloonProvider>
             <main>
-                <section className="w-full h-screen relative" style={{ background: "linear-gradient(to bottom right, #fff 40%, #fff 75%)" }}>
+                <section className="w-full h-svh relative" style={{ background: "linear-gradient(to bottom right, #fff 40%, #fff 75%)" }}>
                     <Header />
                     {revealed && <Guide />}
-                    <Suspense fallback={null}>
-                        <Scene setModelLoaded={setSceneLoaded} className="w-full h-full" />
-                    </Suspense>
+                    <SceneBoundary onError={handleSceneError}>
+                        <Suspense fallback={<div className="w-full h-full" />}>
+                            <Scene setModelLoaded={setSceneLoaded} className="w-full h-full" />
+                        </Suspense>
+                    </SceneBoundary>
                     {revealed && <Hero />}
                     <MobileDivider />
                     <Divider />

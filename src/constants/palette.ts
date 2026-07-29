@@ -1,4 +1,4 @@
-export const SCENE_BALLOON_COLORS = ['#ffc6b5', '#b2faff', '#fffba4'] as const;
+export const SCENE_BALLOON_COLORS = ['#e8b856', '#f8a78a', '#add1e4'] as const;
 
 export const TECH_COLORS = {
     unreal: '#F7931D',

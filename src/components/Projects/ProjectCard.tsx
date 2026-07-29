@@ -154,19 +154,19 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
             </div>
 
             <div
-                className="absolute inset-0 flex items-center justify-center px-6"
+                className={`absolute inset-0 flex items-center justify-center ${isSmallScreen ? 'px-4' : 'px-6'}`}
                 style={{ transform: 'translateZ(40px)' }}
             >
                 <div className="flex flex-col items-center space-y-1 max-w-full">
-                    <h2 className={`font-bold text-center bg-gradient-to-r from-white via-amber-50 to-white
+                    <h2 className={`font-bold text-center break-words max-w-full bg-gradient-to-r from-white via-amber-50 to-white
             bg-clip-text text-transparent bg-[length:200%_100%] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] leading-tight
-            ${isSmallScreen ? 'text-base' : 'text-lg'}`}>
+            ${isSmallScreen ? 'text-sm' : 'text-lg'}`}>
                         {formatRepoName(repo.name)}
                     </h2>
 
                     <p className={`text-center text-white/60
             drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] leading-tight
-            ${isSmallScreen ? 'text-[10px]' : 'text-xs'}`}>
+            ${isSmallScreen ? 'text-[10px] line-clamp-3' : 'text-xs'}`}>
                         {repo.description.length > (isSmallScreen ? 80 : 100) ?
                             repo.description.substring(0, isSmallScreen ? 80 : 100) + '...' :
                             repo.description}

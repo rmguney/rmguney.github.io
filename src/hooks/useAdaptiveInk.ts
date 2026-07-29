@@ -2,13 +2,20 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import { beginSkySampling, skyLumaAtNdc } from '../utils/skyProbe';
 
 const INK_BLACK = '#000000';
-const INK_WHITE = '#ffffff';
 
 const SAMPLE_INTERVAL_MS = 120;
 const LUMA_THRESHOLD = 0.5;
 const LUMA_HYSTERESIS = 0.06;
 const GRID_X = 5;
 const GRID_Y = 4;
+const TRANSITION_SECONDS = 0.6;
+
+function grayHex(level: number): string {
+    const eased = level * level * (3 - 2 * level);
+    const value = Math.round(Math.min(1, Math.max(0, eased)) * 255);
+    const channel = value.toString(16).padStart(2, '0');
+    return `#${channel}${channel}${channel}`;
+}
 
 function largestCanvas(): HTMLCanvasElement | null {
     let best: HTMLCanvasElement | null = null;
@@ -26,8 +33,27 @@ function largestCanvas(): HTMLCanvasElement | null {
 export function useAdaptiveInk(target: RefObject<HTMLElement | null>): string {
     const [ink, setInk] = useState<string>(INK_BLACK);
     const overLight = useRef<boolean>(true);
+    const level = useRef<number>(0);
+    const raf = useRef<number>(0);
 
     useEffect(() => {
+        const animate = (): void => {
+            cancelAnimationFrame(raf.current);
+            let last = performance.now();
+            const tick = (now: number): void => {
+                const dt = Math.min(0.1, (now - last) / 1000);
+                last = now;
+                const goal = overLight.current ? 0 : 1;
+                const direction = Math.sign(goal - level.current);
+                const next = level.current + direction * (dt / TRANSITION_SECONDS);
+                const arrived = (goal - next) * direction <= 0;
+                level.current = arrived ? goal : next;
+                setInk(grayHex(level.current));
+                if (!arrived) raf.current = requestAnimationFrame(tick);
+            };
+            raf.current = requestAnimationFrame(tick);
+        };
+
         const sample = (): void => {
             if (document.hidden) return;
             const el = target.current;
@@ -63,13 +89,16 @@ export function useAdaptiveInk(target: RefObject<HTMLElement | null>): string {
 
             if (isLight !== wasLight) {
                 overLight.current = isLight;
-                setInk(isLight ? INK_BLACK : INK_WHITE);
+                animate();
             }
         };
 
         const id = window.setInterval(sample, SAMPLE_INTERVAL_MS);
         sample();
-        return () => window.clearInterval(id);
+        return () => {
+            window.clearInterval(id);
+            cancelAnimationFrame(raf.current);
+        };
     }, [target]);
 
     return ink;

@@ -46,7 +46,7 @@ export async function run(): Promise<CheckResult> {
             lines.push(`✗ ${alerts.length} open Dependabot alert(s):`);
             for (const alert of alerts.slice(0, 10)) {
                 lines.push(
-                    `  ${alert.security_advisory?.severity ?? '?'} — ${alert.dependency?.package?.name ?? '?'}: ${alert.security_advisory?.summary ?? ''}`
+                    `  ${alert.security_advisory?.severity ?? '?'} - ${alert.dependency?.package?.name ?? '?'}: ${alert.security_advisory?.summary ?? ''}`
                 );
             }
         }

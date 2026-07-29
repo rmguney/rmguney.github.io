@@ -31,7 +31,7 @@ export async function run(): Promise<CheckResult> {
 
             if (backend === 'webgpu' && !webgpuAdapter) {
                 pass = false;
-                lines.push('  no WebGPU adapter — this run did NOT exercise WebGPU');
+                lines.push('  no WebGPU adapter - this run did NOT exercise WebGPU');
             } else {
                 lines.push(dim(`  adapter=${webgpuAdapter} canvasContext=${activeBackend}`));
             }

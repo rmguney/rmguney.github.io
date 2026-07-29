@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "data": "node src/utils/buildReposData.ts",
+    "rig": "node src/utils/rigModel.ts",
     "prebuild": "node src/utils/buildReposData.ts",
     "build": "vite build",
     "preview": "vite preview",
@@ -41,6 +42,8 @@
     }
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/extensions": "^4.4.2",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.8",
@@ -48,6 +51,7 @@
     "@types/three": "^0.185.1",
     "@vitejs/plugin-react": "^6.0.4",
     "chrome-launcher": "^1.2.0",
+    "draco3dgltf": "^1.5.7",
     "lighthouse": "^13.4.1",
     "playwright": "^1.61.1",
     "tailwindcss": "^4.3.3",

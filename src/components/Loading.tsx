@@ -3,32 +3,47 @@ import { motion } from "framer-motion";
 import { loadProgress } from "../utils/loadProgress";
 import React from "react";
 
+const SWEEP_RATE = 250;
+
 const loadingTexts: string[] = [
     "Inflating balloons...",
-    "Teaching Pikachu to float...",
+    "Teaching the mascot to float...",
     "Convincing the models to load...",
     "Examining the pixels...",
     "Tickling the server...",
     "Aligning the stars...",
-    "Praying to the machine god...",
     "Counting to infinity...",
     "Chasing the mosquitoes away...",
     "Consulting the magic 8-ball...",
-    "All of this is meaningless and we're all going to die anyway...",
     "Possibly summoning the Nintendo lawyers...",
 ];
 
 const Loading = React.memo(function Loading(): React.ReactElement {
     const [displayProgress, setDisplayProgress] = useState<number>(loadProgress.get());
-    const [currentText, setCurrentText] = useState<string>(loadingTexts[0]);
-
-    useEffect(() => loadProgress.subscribe(setDisplayProgress), []);
+    const [currentText, setCurrentText] = useState<string>(
+        () => loadingTexts[Math.floor(Math.random() * loadingTexts.length)]
+    );
 
     useEffect(() => {
-        setCurrentText(
-            loadingTexts[Math.floor(Math.random() * loadingTexts.length)]
-        );
+        let frame = 0;
+        let displayed = loadProgress.get();
+        let last = performance.now();
+        const tick = (): void => {
+            frame = requestAnimationFrame(tick);
+            const now = performance.now();
+            const dt = (now - last) / 1000;
+            last = now;
+            const target = loadProgress.get();
+            if (displayed < target) {
+                displayed = Math.min(displayed + SWEEP_RATE * dt, target);
+                setDisplayProgress(displayed);
+            }
+        };
+        frame = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(frame);
+    }, []);
 
+    useEffect(() => {
         const interval = setInterval(() => {
             setCurrentText(
                 loadingTexts[Math.floor(Math.random() * loadingTexts.length)]

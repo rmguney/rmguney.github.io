@@ -92,7 +92,7 @@ const Guide: React.FC = () => {
             >
                 <PiMouseLeftClickFill
                     size={25}
-                    className="transition-all hidden lg:block cursor-help"
+                    className="hidden lg:block cursor-help"
                 />
                 <span
                     className="absolute -top-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-xs transition-opacity whitespace-nowrap pointer-events-none"
@@ -124,7 +124,7 @@ const Guide: React.FC = () => {
             >
                 <FiPlus
                     size={15}
-                    className="transition-all cursor-help"
+                    className="cursor-help"
                 />
                 <span
                     className="absolute -top-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-xs transition-opacity whitespace-nowrap pointer-events-none"
@@ -156,7 +156,7 @@ const Guide: React.FC = () => {
             >
                 <RiDragMove2Line
                     size={25}
-                    className="transition-all cursor-help"
+                    className="cursor-help"
                 />
                 <span
                     className="absolute -top-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 text-xs transition-opacity whitespace-nowrap pointer-events-none"

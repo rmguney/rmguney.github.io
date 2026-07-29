@@ -33,12 +33,12 @@ type Mon = {
     moves: Move[];
 };
 
-type Battle = { pika: Mon; foe: Mon; wave: number; defeated: number };
+type Battle = { piki: Mon; foe: Mon; wave: number; defeated: number };
 
 const MONO = 'font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.15;';
 
 const INK = {
-    pika: '#f6c343',
+    piki: '#f6c343',
     foe: '#7fb2e5',
     text: '#d6d6d6',
     dim: '#8b8b8b',
@@ -59,10 +59,10 @@ const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.m
 const hpForLevel = (baseHp: number, level: number): number =>
     Math.floor((2 * baseHp * level) / 100) + level + 10;
 
-function makePikachu(): Mon {
+function makePlayer(): Mon {
     const hp = hpForLevel(35, 99);
     return {
-        name: 'PIKACHU', level: 99, hp, maxHp: hp,
+        name: 'PIKI', level: 99, hp, maxHp: hp,
         sprite: [
             '⠸⣷⣦⠤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣠⣤⠀⠀⠀',
             '⠀⠙⣿⡄⠈⠑⢄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠔⠊⠉⣿⡿⠁⠀⠀⠀',
@@ -80,7 +80,7 @@ function makePikachu(): Mon {
             '⠀⠀⠀⠈⠻⣿⣦⣈⣧⡀⠀⠀⢸⣿⣿⠀⠀⢀⣼⡀⣨⣿⡿⠁⠀⠀⠀⠀⠀⠀',
             '⠀⠀⠀⠀⠀⠈⠻⠿⠿⠓⠄⠤⠘⠉⠙⠤⢀⠾⠿⣿⠟⠋',
         ],
-        tint: INK.pika,
+        tint: INK.piki,
         atk: 0, def: 0, spd: 0, para: false, asleep: 0, recharging: false,
         moves: [
             { name: 'VOLT TACKLE', power: 120, acc: 1.0, pp: 15, maxPp: 15, recoil: 1 / 3, para: 0.1 },
@@ -94,12 +94,12 @@ function makePikachu(): Mon {
     };
 }
 
-function makeSnorlax(wave: number): Mon {
+function makeEnemy(wave: number): Mon {
     const step = wave - 1;
     const level = 50 + 4 * step;
     const hp = hpForLevel(160, level);
     return {
-        name: 'SNORLAX', level, hp, maxHp: hp,
+        name: 'SNORE', level, hp, maxHp: hp,
         sprite: [
             '⠀⠀⠀⠀⠀⠀⠀⣾⣶⣄⡀⡄⣀⣀⣴⣶⡄⠀⠀⠀⠀',
             '⠀⠀⠀⠀⠀⠀⢨⣧⡶⣼⣴⣦⣮⢿⣿⣿⠁⠀⠀⠀⠀',
@@ -155,12 +155,12 @@ function scene(b: Battle): void {
     log('', INK.dim);
     log(`WAVE ${b.wave}   defeated: ${b.defeated}`, INK.dim);
     log(card(b.foe, `${b.foe.name} #${b.wave}`), b.foe.tint);
-    log(card(b.pika, b.pika.name), b.pika.tint);
+    log(card(b.piki, b.piki.name), b.piki.tint);
 }
 
 function menu(b: Battle): void {
-    log('What will PIKACHU do?', INK.text, 'bold');
-    b.pika.moves.forEach((m, i) => {
+    log('What will PIKI do?', INK.text, 'bold');
+    b.piki.moves.forEach((m, i) => {
         const detail = m.power
             ? `pow ${String(m.power).padEnd(3)} acc ${`${Math.round(m.acc * 100)}%`.padEnd(4)}`
             : 'status'.padEnd(16);
@@ -226,7 +226,7 @@ async function useMove(user: Mon, foe: Mon, move: Move): Promise<boolean> {
     log(`${foe.name} took ${dmg} damage!   ${hpBar(foe)}`, INK.hit);
     if (crit) {
         await sleep(240);
-        log('A critical hit!', INK.pika, 'bold');
+        log('A critical hit!', INK.piki, 'bold');
     }
 
     if (move.recharge) user.recharging = true;
@@ -274,19 +274,19 @@ async function takeTurn(user: Mon, foe: Mon, move: Move): Promise<boolean> {
     return useMove(user, foe, move);
 }
 
-function pickEnemyMove(foe: Mon, pika: Mon): Move {
+function pickEnemyMove(foe: Mon, piki: Mon): Move {
     const [slam, amnesia, rest, beam] = foe.moves;
     if (rest.pp > 0 && foe.hp < foe.maxHp * 0.4) return rest;
-    if (beam.pp > 0 && pika.hp < pika.maxHp * 0.5 && Math.random() < 0.45) return beam;
+    if (beam.pp > 0 && piki.hp < piki.maxHp * 0.5 && Math.random() < 0.45) return beam;
     if (foe.def < 2 && Math.random() < 0.3) return amnesia;
     if (beam.pp > 0 && Math.random() < 0.15) return beam;
     return slam;
 }
 
-function chooseMove(pika: Mon, index: number): Move | null {
-    const move = pika.moves[index];
+function chooseMove(piki: Mon, index: number): Move | null {
+    const move = piki.moves[index];
     if (move && move.pp > 0) return move;
-    if (pika.moves.every((m) => m.pp <= 0)) return STRUGGLE;
+    if (piki.moves.every((m) => m.pp <= 0)) return STRUGGLE;
     return null;
 }
 
@@ -322,31 +322,31 @@ async function nextWave(b: Battle): Promise<void> {
     b.defeated++;
     b.wave++;
 
-    const healed = Math.min(b.pika.maxHp - b.pika.hp, Math.round(b.pika.maxHp * 0.15));
+    const healed = Math.min(b.piki.maxHp - b.piki.hp, Math.round(b.piki.maxHp * 0.15));
     if (healed > 0) {
-        b.pika.hp += healed;
-        log(`PIKACHU caught its breath. (+${healed} HP)`, INK.good);
+        b.piki.hp += healed;
+        log(`PIKI caught its breath. (+${healed} HP)`, INK.good);
     }
-    b.pika.atk = 0;
-    b.pika.def = 0;
-    b.pika.spd = 0;
-    b.pika.recharging = false;
-    if (b.pika.para && Math.random() < 0.5) {
-        b.pika.para = false;
-        log('PIKACHU shook off its paralysis!', INK.good);
+    b.piki.atk = 0;
+    b.piki.def = 0;
+    b.piki.spd = 0;
+    b.piki.recharging = false;
+    if (b.piki.para && Math.random() < 0.5) {
+        b.piki.para = false;
+        log('PIKI shook off its paralysis!', INK.good);
     }
 
-    b.foe = makeSnorlax(b.wave);
+    b.foe = makeEnemy(b.wave);
     await sleep(500);
-    log('Another SNORLAX rolls in, blocking the path!', INK.foe, 'bold');
+    log('Another SNORE rolls in, blocking the path!', INK.foe, 'bold');
 }
 
 async function play(): Promise<void> {
-    const b: Battle = { pika: makePikachu(), foe: makeSnorlax(1), wave: 1, defeated: 0 };
+    const b: Battle = { piki: makePlayer(), foe: makeEnemy(1), wave: 1, defeated: 0 };
 
     log('', INK.dim);
-    log('  E N D L E S S   B A T T L E  ', INK.pika, 'bold');
-    log('A wild SNORLAX is blocking the path!  Go! PIKACHU!', INK.text);
+    log('A wild SNORE is blocking the path!', INK.text);
+    log('Go! PIKI!', INK.piki, 'bold');
 
     for (; ;) {
         scene(b);
@@ -356,18 +356,18 @@ async function play(): Promise<void> {
         while (!move) {
             const cmd = await nextCommand();
             if (cmd.kind === 'flee') {
-                log(`Got away safely. ${b.defeated} SNORLAX defeated.`, INK.dim);
+                log(`Got away safely. ${b.defeated} SNORE defeated.`, INK.dim);
                 return;
             }
-            move = chooseMove(b.pika, cmd.index);
+            move = chooseMove(b.piki, cmd.index);
             if (!move) log('No PP left for that move!', INK.hit);
         }
 
-        const enemyMove = pickEnemyMove(b.foe, b.pika);
-        const pikaFirst = speedOf(b.pika, 90, move) >= speedOf(b.foe, 30, enemyMove);
-        const order: [Mon, Mon, Move][] = pikaFirst
-            ? [[b.pika, b.foe, move], [b.foe, b.pika, enemyMove]]
-            : [[b.foe, b.pika, enemyMove], [b.pika, b.foe, move]];
+        const enemyMove = pickEnemyMove(b.foe, b.piki);
+        const pikiFirst = speedOf(b.piki, 90, move) >= speedOf(b.foe, 30, enemyMove);
+        const order: [Mon, Mon, Move][] = pikiFirst
+            ? [[b.piki, b.foe, move], [b.foe, b.piki, enemyMove]]
+            : [[b.foe, b.piki, enemyMove], [b.piki, b.foe, move]];
 
         for (const [user, foe, m] of order) {
             if (user.hp === 0 || foe.hp === 0) break;
@@ -375,18 +375,18 @@ async function play(): Promise<void> {
             if (knockedOut || user.hp === 0) break;
         }
 
-        if (b.pika.hp === 0) {
+        if (b.piki.hp === 0) {
             if (b.foe.hp === 0) b.defeated++;
             await sleep(400);
-            log('PIKACHU fainted!', INK.pika, 'bold');
+            log('PIKI fainted!', INK.piki, 'bold');
             log('Y O U   B L A C K E D   O U T', INK.hit, 'bold');
-            log(`${b.defeated} SNORLAX defeated before falling. Final wave: ${b.wave}`, INK.dim);
+            log(`${b.defeated} SNORE defeated before falling. Final wave: ${b.wave}`, INK.dim);
             log('type again for a rematch', INK.dim);
             return;
         }
         if (b.foe.hp === 0) {
             await sleep(400);
-            log('SNORLAX fainted!', INK.foe, 'bold');
+            log('SNORE fainted!', INK.foe, 'bold');
             await nextWave(b);
         }
     }
@@ -422,13 +422,32 @@ function command(name: string, fire: () => void): void {
     });
 }
 
-if (!window.__battleBooted) {
-    window.__battleBooted = true;
+function boot(): void {
     for (let i = 1; i <= 4; i++) command(`_${i}`, () => submit({ kind: 'move', index: i - 1 }));
     command('flee', () => submit({ kind: 'flee' }));
     command('again', start);
     bindInput();
     start();
+}
+
+if (!window.__battleBooted) {
+    window.__battleBooted = true;
+    let armed = false;
+    const arm = (): void => {
+        if (armed) return;
+        armed = true;
+        window.setTimeout(boot, 50);
+    };
+
+    const elementProbe = document.createElement('img');
+    Object.defineProperty(elementProbe, 'id', {
+        get(): string { arm(); return 'piki'; },
+    });
+
+    const regexProbe = /piki/;
+    regexProbe.toString = (): string => { arm(); return '/piki/'; };
+
+    console.log('%c⚡', paint(INK.piki, 'bold'), elementProbe, regexProbe);
 }
 
 export { };

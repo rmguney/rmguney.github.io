@@ -43,7 +43,7 @@ export async function captureConsole(
     page.on('requestfailed', (req) => {
         const reason = req.failure()?.errorText ?? 'failed';
         if (reason === 'net::ERR_ABORTED') return;
-        push('request-failed', `${reason} — ${req.url()}`);
+        push('request-failed', `${reason} - ${req.url()}`);
     });
     page.on('response', (res) => {
         if (res.status() >= 400) push(`http-${res.status()}`, res.url());

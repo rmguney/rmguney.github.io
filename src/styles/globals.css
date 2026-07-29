@@ -9,6 +9,10 @@ body {
   background-color: #111111;
 }
 
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 .group:hover svg {
   color: var(--hover-color) !important;
 }

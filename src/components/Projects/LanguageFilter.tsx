@@ -64,7 +64,6 @@ const LanguageFilter: React.FC<LanguageFilterProps> = ({
                   transition-opacity duration-500 z-50
                   border border-white/10 shadow-lg whitespace-nowrap">
                                 <div className="flex flex-row items-center gap-1.5">
-                                    <span className="text-white/50 text-[9px]">Linguist:</span>
                                     {existingGroupedLanguages.map((subLang) => (
                                         <span key={subLang} className="flex items-center">
                                             <span
@@ -102,7 +101,6 @@ const LanguageFilter: React.FC<LanguageFilterProps> = ({
                   transition-opacity duration-500 z-50
                   border border-white/10 shadow-lg whitespace-nowrap">
                         <div className="flex flex-row items-center gap-1.5">
-                            <span className="text-white/50 text-[9px]">Linguist:</span>
                             {minorLanguages.map((lang) => (
                                 <span key={lang.name} className="flex items-center">
                                     <span

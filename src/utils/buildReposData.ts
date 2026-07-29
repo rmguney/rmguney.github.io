@@ -120,6 +120,17 @@ async function gh<T>(url: string, attempt = 0): Promise<T | null> {
     return response.json() as Promise<T>;
 }
 
+async function ghPaged<T>(baseUrl: string): Promise<T[] | null> {
+    const all: T[] = [];
+    for (let page = 1; ; page++) {
+        const separator = baseUrl.includes('?') ? '&' : '?';
+        const batch = await gh<T[]>(`${baseUrl}${separator}per_page=100&page=${page}`);
+        if (!Array.isArray(batch)) return null;
+        all.push(...batch);
+        if (batch.length < 100) return all;
+    }
+}
+
 async function fetchPinned(): Promise<Set<string>> {
     if (!authActive) {
         console.warn('  ~ running anonymously, skipping pinned lookup');
@@ -167,7 +178,7 @@ async function fetchWatched(): Promise<Set<string>> {
         return new Set();
     }
 
-    const subs = await gh<WatchedRepo[]>('https://api.github.com/user/subscriptions?per_page=100');
+    const subs = await ghPaged<WatchedRepo>('https://api.github.com/user/subscriptions');
     if (!Array.isArray(subs)) {
         console.warn('  ~ could not read watch list, ownerIsWatching will be false');
         return new Set();
@@ -199,9 +210,9 @@ const calculateImportance = (repo: Repository): number => {
 async function main(): Promise<void> {
     console.log(repoSpawner
         ? 'Building repo data (authenticated)...'
-        : 'Building repo data (anonymous — pinned order will be lost)...');
+        : 'Building repo data (anonymous - pinned order will be lost)...');
 
-    const rawRepos = await gh<RawRepo[]>(`https://api.github.com/users/${USER}/repos?per_page=100`);
+    const rawRepos = await ghPaged<RawRepo>(`https://api.github.com/users/${USER}/repos`);
     if (!Array.isArray(rawRepos)) {
         throw new Error('Could not read the repository list; refusing to emit a partial repos.json');
     }
@@ -255,7 +266,7 @@ async function main(): Promise<void> {
     await writeFile(path.join(OUT_DIR, 'repos.json'), JSON.stringify(repos), 'utf8');
     console.log(`  wrote public/repos.json (${repos.length} repos)`);
 
-    const needsReadme = repos.filter(repo => repo.isGithubPage || repo.isPortfolio);
+    const needsReadme = repos;
 
     const fetched = await Promise.all(needsReadme.map(async repo => {
         const data = await gh<ReadmeResponse>(`https://api.github.com/repos/${USER}/${repo.name}/readme`);

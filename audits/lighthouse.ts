@@ -75,7 +75,7 @@ export async function run(): Promise<CheckResult> {
             lines.push(bold(backend));
             if (gpuAvailable !== expected) {
                 pass = false;
-                lines.push(`  WebGPU adapter ${gpuAvailable ? 'present' : 'absent'} — this row did NOT exercise ${backend}`);
+                lines.push(`  WebGPU adapter ${gpuAvailable ? 'present' : 'absent'} - this row did NOT exercise ${backend}`);
             } else {
                 lines.push(dim(`  adapter=${gpuAvailable}`));
             }

@@ -1,8 +1,13 @@
 import type { Repository } from '../types';
 
-const LIST_URL = 'https://api.github.com/users/rmguney/repos?per_page=100';
+const listUrl = (page: number): string =>
+    `https://api.github.com/users/rmguney/repos?per_page=100&page=${page}`;
 const TTL_KEY = 'live_stats_checked_at';
 const TTL_MS = 15 * 60 * 1000;
+const KILOBYTE = 1024;
+
+const languagesUrl = (name: string): string =>
+    `https://api.github.com/repos/rmguney/${encodeURIComponent(name)}/languages`;
 
 interface LiveRepo {
     id: number;
@@ -47,8 +52,8 @@ const synthesize = (raw: LiveRepo): Repository => ({
     stars: raw.stargazers_count || 0,
     forks: raw.forks_count || 0,
     watchers: 0,
-    languages: raw.language ? { [raw.language]: raw.size || 0 } : {},
-    codeBytes: raw.size || 0,
+    languages: raw.language ? { [raw.language]: (raw.size || 0) * KILOBYTE } : {},
+    codeBytes: (raw.size || 0) * KILOBYTE,
     importanceFactor: 0,
     isGithubPage: !raw.homepage || raw.homepage === '',
     isPinned: false,
@@ -57,6 +62,21 @@ const synthesize = (raw: LiveRepo): Repository => ({
     hasPackages: false,
     ownerIsWatching: false
 });
+
+async function withRealLanguages(repo: Repository, name: string): Promise<Repository> {
+    try {
+        const response = await fetch(languagesUrl(name), {
+            headers: { Accept: 'application/vnd.github.v3+json' },
+        });
+        if (!response.ok) return repo;
+        const languages = await response.json() as Record<string, number>;
+        const codeBytes = Object.values(languages).reduce((total, bytes) => total + bytes, 0);
+        if (!Number.isFinite(codeBytes) || codeBytes <= 0) return repo;
+        return { ...repo, languages, codeBytes };
+    } catch {
+        return repo;
+    }
+}
 
 export async function fetchReadmeFromApi(owner: string, repo: string): Promise<string | null> {
     try {
@@ -78,19 +98,46 @@ export async function fetchReadmeFromApi(owner: string, repo: string): Promise<s
     }
 }
 
+async function fetchAllLive(): Promise<LiveRepo[] | null> {
+    const all: LiveRepo[] = [];
+    for (let page = 1; ; page++) {
+        try {
+            const response = await fetch(listUrl(page), { headers: { Accept: 'application/vnd.github.v3+json' } });
+            if (!response.ok) return null;
+            const batch = await response.json() as LiveRepo[];
+            if (!Array.isArray(batch)) return null;
+            all.push(...batch);
+            if (batch.length < 100) return all;
+        } catch {
+            return null;
+        }
+    }
+}
+
+const LIVE_MERGE_KEYS = [
+    'name', 'description', 'url', 'githubUrl', 'language',
+    'size', 'stars', 'forks', 'isGithubPage', 'isPortfolio'
+] as const;
+
+const mergeLive = (repo: Repository, fresh: LiveRepo): Repository => ({
+    ...repo,
+    name: fresh.name || repo.name,
+    description: fresh.description || 'No description available',
+    url: (fresh.homepage && fresh.homepage !== '') ? fresh.homepage : fresh.html_url,
+    githubUrl: fresh.html_url || repo.githubUrl,
+    language: fresh.language || 'Unknown',
+    size: fresh.size || 0,
+    stars: fresh.stargazers_count || 0,
+    forks: fresh.forks_count || 0,
+    isGithubPage: !fresh.homepage || fresh.homepage === '',
+    isPortfolio: fresh.name === 'rmguney.github.io'
+});
+
 export async function applyLiveStats(baseline: Repository[]): Promise<Repository[] | null> {
     if (withinTtl()) return null;
 
-    let live: LiveRepo[];
-    try {
-        const response = await fetch(LIST_URL, { headers: { Accept: 'application/vnd.github.v3+json' } });
-        if (!response.ok) return null;
-        live = await response.json();
-    } catch {
-        return null;
-    }
-
-    if (!Array.isArray(live) || live.length === 0) return null;
+    const live = await fetchAllLive();
+    if (!live || live.length === 0) return null;
     markChecked();
 
     const sources = live.filter(repo => !repo.fork);
@@ -104,16 +151,18 @@ export async function applyLiveStats(baseline: Repository[]): Promise<Repository
             changed = true;
             continue;
         }
-        if (fresh.stargazers_count !== repo.stars || fresh.forks_count !== repo.forks) {
-            kept.push({ ...repo, stars: fresh.stargazers_count, forks: fresh.forks_count });
-            changed = true;
-        } else {
-            kept.push(repo);
-        }
+        const merged = mergeLive(repo, fresh);
+        const differs = LIVE_MERGE_KEYS.some(key => merged[key] !== repo[key]);
+        kept.push(differs ? merged : repo);
+        if (differs) changed = true;
     }
 
     const known = new Set(baseline.map(repo => repo.id));
-    const added = sources.filter(repo => !known.has(repo.id)).map(synthesize);
+    const added = await Promise.all(
+        sources
+            .filter(repo => !known.has(repo.id))
+            .map(repo => withRealLanguages(synthesize(repo), repo.name))
+    );
     if (added.length > 0) changed = true;
 
     return changed ? [...kept, ...added] : null;

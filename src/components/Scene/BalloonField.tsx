@@ -1,6 +1,6 @@
 ﻿import { useState, useRef, useEffect, useMemo, useCallback, type RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Physics, RigidBody, BallCollider, useRapier, useBeforePhysicsStep, RapierRigidBody } from "@react-three/rapier";
+import { Physics, RigidBody, BallCollider, TrimeshCollider, useRapier, useBeforePhysicsStep, RapierRigidBody, CollisionEnterPayload } from "@react-three/rapier";
 import * as THREE from "three";
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { useBalloons } from '../../context/BalloonContext';
@@ -15,7 +15,11 @@ import type {
     WobbleState,
     LastImpact,
     RotationState,
-    BalloonMesh
+    BalloonMesh,
+    ModelColliderProps,
+    ModelColliderHandle,
+    ModelColliderShape,
+    ModelPokeHandle
 } from '../../types';
 
 const UNIT_SCALE = new THREE.Vector3(1, 1, 1);
@@ -47,6 +51,13 @@ const JIGGLE_RATE_MAX = 5.6;
 
 const SPAWN_HALF_EXTENT = 36;
 const SPAWN_EXTENT = SPAWN_HALF_EXTENT * 2;
+const STRAY_COUNT = 26;
+const STRAY_MIN_RADIUS = 70;
+const STRAY_MAX_RADIUS = 190;
+const STRAY_HEIGHT_BIAS = 0.55;
+const MODEL_HOME = new THREE.Vector3(17, 0, 0);
+const MODEL_CLEARANCE = 12.5;
+const SPAWN_ATTEMPTS = 16;
 
 const BALLOON_OPACITY = 0.85;
 
@@ -260,11 +271,35 @@ const Balloon = React.memo(function Balloon({ position, color, meshToBodyRef, sp
     );
 });
 
-function getRandomPosition(): [number, number, number] {
+function getRandomPosition(avoid: THREE.Vector3): [number, number, number] {
+    const clearanceSq = MODEL_CLEARANCE * MODEL_CLEARANCE;
+    for (let attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
+        const x = Math.random() * SPAWN_EXTENT - SPAWN_HALF_EXTENT;
+        const y = Math.random() * SPAWN_EXTENT - SPAWN_HALF_EXTENT;
+        const z = Math.random() * SPAWN_EXTENT - SPAWN_HALF_EXTENT;
+        const dx = x - avoid.x, dy = y - avoid.y, dz = z - avoid.z;
+        if (dx * dx + dy * dy + dz * dz >= clearanceSq) return [x, y, z];
+    }
+    const theta = Math.random() * Math.PI * 2;
+    const height = Math.random() * 2 - 1;
+    const ring = Math.sqrt(1 - height * height);
     return [
-        Math.random() * SPAWN_EXTENT - SPAWN_HALF_EXTENT,
-        Math.random() * SPAWN_EXTENT - SPAWN_HALF_EXTENT,
-        Math.random() * SPAWN_EXTENT - SPAWN_HALF_EXTENT,
+        avoid.x + MODEL_CLEARANCE * ring * Math.cos(theta),
+        avoid.y + MODEL_CLEARANCE * height,
+        avoid.z + MODEL_CLEARANCE * ring * Math.sin(theta),
+    ];
+}
+
+function getStrayPosition(): [number, number, number] {
+    const height = Math.random() * 2 - 1;
+    const theta = Math.random() * Math.PI * 2;
+    const ring = Math.sqrt(1 - height * height);
+    const radius = STRAY_MIN_RADIUS
+        + Math.cbrt(Math.random()) * (STRAY_MAX_RADIUS - STRAY_MIN_RADIUS);
+    return [
+        radius * ring * Math.cos(theta),
+        radius * height * STRAY_HEIGHT_BIAS,
+        radius * ring * Math.sin(theta),
     ];
 }
 
@@ -295,6 +330,55 @@ function ReadySignal({ onReady }: { onReady: () => void }): null {
     return null;
 }
 
+const MODEL_HIT_MIN_SPEED = 3;
+const MODEL_HIT_FULL_SPEED = 30;
+const MODEL_HIT_STRENGTH = 0.12;
+const tmpHitDir = new THREE.Vector3();
+
+function ModelCollider({ shape, handleRef, pokeRef }: ModelColliderProps): React.ReactElement {
+    const bodyRef = useRef<RapierRigidBody>(null);
+
+    useBeforePhysicsStep(() => {
+        const handle = handleRef.current;
+        const body = bodyRef.current;
+        if (!handle || !body) return;
+        body.setNextKinematicTranslation(handle.position);
+        body.setNextKinematicRotation(handle.quaternion);
+    });
+
+    const handleBalloonHit = useCallback((event: CollisionEnterPayload): void => {
+        const poke = pokeRef.current;
+        const handle = handleRef.current;
+        const balloon = event.other.rigidBody;
+        if (!poke || !handle || !balloon) return;
+        const vel = balloon.linvel();
+        const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+        if (speed < MODEL_HIT_MIN_SPEED) return;
+        const pos = balloon.translation();
+        tmpHitDir.set(
+            handle.position.x - pos.x,
+            handle.position.y - pos.y,
+            handle.position.z - pos.z
+        );
+        if (tmpHitDir.lengthSq() < 1e-6) return;
+        tmpHitDir.normalize();
+        poke.push(tmpHitDir, MODEL_HIT_STRENGTH * Math.min(1, speed / MODEL_HIT_FULL_SPEED));
+    }, [pokeRef, handleRef]);
+
+    return (
+        <RigidBody
+            ref={bodyRef}
+            type="kinematicPosition"
+            colliders={false}
+            restitution={0.7}
+            friction={0.2}
+            onCollisionEnter={handleBalloonHit}
+        >
+            <TrimeshCollider args={[shape.vertices, shape.indices]} />
+        </RigidBody>
+    );
+}
+
 function RapierProvider({ rapierRef }: RapierProviderProps): null {
     const { rapier } = useRapier();
     useEffect(() => {
@@ -309,25 +393,38 @@ interface BalloonFieldProps {
     rapierRef: RefObject<any>;
     physicsPaused: boolean;
     onReady: () => void;
+    modelCollider: ModelColliderShape | null;
+    modelColliderRef: RefObject<ModelColliderHandle | null>;
+    modelPokeRef: RefObject<ModelPokeHandle | null>;
 }
 
-export default function BalloonField({ meshToBodyRef, rapierRef, physicsPaused, onReady }: BalloonFieldProps): React.ReactElement {
+export default function BalloonField({
+    meshToBodyRef,
+    rapierRef,
+    physicsPaused,
+    onReady,
+    modelCollider,
+    modelColliderRef,
+    modelPokeRef,
+}: BalloonFieldProps): React.ReactElement {
 
     const { balloonSpawnQueue, clearSpawnQueue } = useBalloons();
     const [balloons, setBalloons] = useState<BalloonData[]>([]);
 
     useMemo(prewarmMaterials, []);
 
-    const [initialBalloons, setInitialBalloons] = useState<BalloonData[]>(() =>
-        Array.from({ length: 60 }).map((_, index) => {
-            const color = getRandomColor();
-            return {
-                position: getRandomPosition(),
-                color,
-                id: `initial-${index}`,
-            };
-        })
-    );
+    const [initialBalloons, setInitialBalloons] = useState<BalloonData[]>(() => [
+        ...Array.from({ length: 60 }).map((_, index) => ({
+            position: getRandomPosition(modelColliderRef.current?.position ?? MODEL_HOME),
+            color: getRandomColor(),
+            id: `initial-${index}`,
+        })),
+        ...Array.from({ length: STRAY_COUNT }).map((_, index) => ({
+            position: getStrayPosition(),
+            color: getRandomColor(),
+            id: `initial-stray-${index}`,
+        })),
+    ]);
 
     const removeBalloon = useCallback((balloonId: string): void => {
         meshToBodyRef.current.forEach((_body, mesh) => {
@@ -351,8 +448,9 @@ export default function BalloonField({ meshToBodyRef, rapierRef, physicsPaused, 
                 const actualCount = Math.min(count, maxNewBalloons);
 
                 if (actualCount > 0) {
+                    const avoid = modelColliderRef.current?.position ?? MODEL_HOME;
                     const newBalloons: BalloonData[] = Array.from({ length: actualCount }).map(() => ({
-                        position: getRandomPosition(),
+                        position: getRandomPosition(avoid),
                         color: color,
                         id: Math.random().toString(36).slice(2, 11),
                         spawning: true,
@@ -368,6 +466,9 @@ export default function BalloonField({ meshToBodyRef, rapierRef, physicsPaused, 
         <Physics paused={physicsPaused} timeStep={PHYSICS_TIME_STEP}>
             <SimClock />
             <ReadySignal onReady={onReady} />
+            {modelCollider && (
+                <ModelCollider shape={modelCollider} handleRef={modelColliderRef} pokeRef={modelPokeRef} />
+            )}
             {initialBalloons.map((data) => (
                 <Balloon
                     key={data.id}

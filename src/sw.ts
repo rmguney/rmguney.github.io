@@ -4,8 +4,8 @@ declare const self: ServiceWorkerGlobalScope & {
     __WB_MANIFEST: Array<string | { url: string; revision: string | null }>;
 };
 
-const CACHE_NAME = 'portfolio-cache-v3';
-const RUNTIME_CACHE = 'portfolio-runtime-v3';
+const CACHE_NAME = 'portfolio-cache-v4';
+const RUNTIME_CACHE = 'portfolio-runtime-v4';
 
 const PRECACHE_URLS = self.__WB_MANIFEST.map((entry) =>
     typeof entry === 'string' ? entry : entry.url
@@ -50,12 +50,13 @@ function cacheFirst(request: Request): Promise<Response> {
     return caches.match(request).then(
         (cached) =>
             cached ??
-            fetch(request).then((response) =>
-                caches.open(RUNTIME_CACHE).then((cache) => {
-                    cache.put(request, response.clone());
-                    return response;
-                })
-            )
+            fetch(request).then((response) => {
+                if (!response.ok) return response;
+                const copy = response.clone();
+                return caches.open(RUNTIME_CACHE).then((cache) =>
+                    cache.put(request, copy).then(() => response)
+                );
+            })
     );
 }
 

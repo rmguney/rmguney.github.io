@@ -1,101 +1,42 @@
 # Interactive 3D Portfolio
 
-Personal portfolio website featuring an immersive 3D environment with physics-based balloon interactions and open source projects showcase.
+Personal portfolio at [rmguney.github.io](https://rmguney.github.io): a procedurally rigged mascot afloat in a physics balloon field, plus a GitHub projects browser styled as a handheld console.
 
-## Technical Architecture
+## Rendering
 
-### Rendering Pipeline
+Three.js **WebGPURenderer** under React Three Fiber, falling back to WebGL2; the classic `WebGLRenderer` is shimmed out of the bundle entirely.
 
-Built on **React Three Fiber** over **Three.js**, rendering through **WebGPURenderer** with automatic WebGL2 fallback. The classic `WebGLRenderer` is excluded from the bundle via a module shim, so only one renderer ships.
+- Hand-written **WGSL and GLSL** kept in lockstep, chosen from the live backend at runtime with no TSL abstraction; a shader generation counter invalidates pooled materials if the backend changes
+- Cel shading and rim lighting applied through `material.outputNode`, replacing material output instead of post-processing the frame
 
-- **Dual Shader Sources**: Hand-written **WGSL** and **GLSL** kept in lockstep, selected at runtime from the active backend, no TSL abstraction layer
-- **Cel Shading**: Lambert quantization into discrete bands with a symmetric smoothstep edge, applied through `material.outputNode` so it replaces material output rather than post-processing the frame
-- **Rim Lighting**: Fresnel term with independent power and strength per surface type
+## Rigging & Animation
 
-### Physics & Interaction
+The mascot ships as a single unrigged mesh with no authored clips; rigging and animation are procedural end to end.
 
-Physics is powered by **@react-three/rapier** wrapping the Rapier engine.
+- A geodesic watershed over the welded mesh grows a 13-bone skeleton from a seed table; one-hot weights are Laplacian-smoothed to four influences and baked into the glTF offline (`npm run rig`), so the rig costs nothing at load and is reproducible from source
+- Every bone drives a world-space particle on a spring-damper with per-limb stiffness, swing clamps, and length constraints, so any body motion produces secondary lag for free
+- The procedural idle pose is applied before the spring solve, so limb and ear motion pulls the ragdoll along instead of being overwritten by it
+- Pose, springs, nudge, and blink advance on a shared clamped clock, so returning from a background tab cannot snap the rig
+- The blink is drawn in the shader: the eyes exist only in a scattered UV atlas, so the eyelid is an ellipsoid test in bind-pose space with a lash band, mixed into base colour before shading so the lid picks up the same cel banding as the face
 
-- **Framerate-Independent Simulation**: Fixed-timestep accumulator with impulses applied in `useBeforePhysicsStep`
-- **Balloon Dynamics**: Buoyancy, layered wind forces, and torque, with explicit `BallCollider` sizing so spawn animations cannot alter mass
-- **Mouse Interaction**: Proximity-based force application with impact-driven wobble deformation
-- **Idle Jiggle**: Per-balloon deformation on incommensurate axis frequencies, composed over the wobble rather than accumulated into it
-- **Camera**: Orbital controls with responsive positioning and constrained polar angles
+## Physics
 
-### Adaptive UI
+Rapier on a fixed timestep, forces applied in `useBeforePhysicsStep`.
 
-Overlay text and icons sample the scene behind them and switch between pure black and white.
+- Near-neutral buoyancy balloons with layered wind and torque; pointer impulses drive impact wobble deformation on top of an idle jiggle
+- A kinematic trimesh hull follows the procedurally animated mascot, so balloons bounce off it while nothing in the physics world can displace it
+- Balloon impacts on the hull feed back into the mascot's nudge spring and gust, speed-gated so ambient drift never twitches it and capped far below a direct poke
 
-- **Zero-Readback Sampling**: The skybox texture is reduced to a luminance map once at load; screen positions are resolved by analytic ray–sphere intersection against the fitted UV convention, so no framebuffer readback is ever performed
-- **Hysteresis**: A threshold band prevents oscillation when the backdrop sits near mid-grey
-- **Independent Regions**: Hero and guide sample their own screen areas and flip separately
+## Adaptive UI
 
-### Asset Pipeline
+Overlay ink flips between black and white by sampling the scene behind it with zero framebuffer readback: the skybox is reduced once to a luminance map, screen points resolve by analytic ray-sphere intersection, and the sphere's UV convention (sign, offset, flip) is fitted statistically from its geometry rather than assumed. A hysteresis band prevents flicker near mid-grey.
 
-- **Progressive Skybox**: A compressed preview renders immediately while the full-resolution asset loads behind it on its own `LoadingManager`, so the upgrade never re-enters the loading gate
-- **Mobile Budget**: Small viewports skip the full-resolution upgrade entirely
-- **Draco + WebP**: Geometry and texture compression throughout, with meshoptimizer decimation on the main model
-- **Cache Busting**: A build-time asset version is appended to model URLs so replaced binaries can never be served stale
+## Assets & Loading
 
-### Loading
+- Progressive skybox: a compressed preview renders immediately while the full asset loads behind it, skipped on mobile
+- Draco quantization verified against the uncompressed source so error stays below one screen pixel
+- A weighted phase bus aggregates asset, scene, and repo progress into one monotonic loader behind a reveal gate; projects data is prebuilt from the GitHub API at build time
 
-- **Weighted Phase Bus**: Monotonic progress aggregated across assets, scene readiness, and repository fetch
-- **Reveal Gate**: The projects view stays hidden until every phase completes
-- **Lazy Boundaries**: Scene and projects are separate code-split chunks behind `Suspense`
+## Tooling
 
-### State Management
-
-**React Context** for global state:
-
-- **Framework Showcase**: Balloon spawning triggered by tech icon interactions
-- **Material Pooling**: Materials are pre-warmed per palette colour after backend selection, so spawning compiles no shaders
-
-### Animation
-
-**Framer Motion** powers the interface animations:
-
-- **Staggered Reveals**: Sequential element entry with intersection observer triggers
-- **Interactive Text**: Hover animations with spring physics
-- **Icon Grid**: Individual hover effects with brand-coloured feedback
-
-### Audit Suite
-
-TypeScript checks run directly through Node with `npm run test:audit`, or individually:
-
-| Command | Coverage |
-| --- | --- |
-| `test:lighthouse` | Performance, accessibility, best practices, SEO across WebGPU/WebGL2 × desktop/mobile |
-| `test:console` | Production console cleanliness on both backends |
-| `test:console:dev` | Dev server console cleanliness |
-| `test:dependabot` | Dependabot config and open alerts |
-| `test:npm-audit` | Dependency vulnerabilities |
-
-### Build & Deployment
-
-**Vite** with **TypeScript** and **TailwindCSS 4** (via its Vite plugin, no PostCSS pipeline):
-
-- **Client-Rendered SPA**: Static bundle output, deployed to GitHub Pages
-- **PWA**: Service worker with precache manifest via `injectManifest`
-- **GitHub Actions**: Push-to-deploy with npm caching
-- **Source Maps**: Emitted for production debugging
-
-### Responsive Design
-
-- **Mobile-First Breakpoints**: Adaptive layouts from mobile to desktop
-- **Responsive Camera**: Position adjusts across breakpoints to preserve framing
-- **Touch-Friendly Interactions**: Balloon interactions tuned for mobile
-- **Stable Scrollbar Gutter**: Reserved to prevent canvas resize jitter
-
-### Usage and Interaction
-
-**3D Environment:**
-
-- Hover over balloons to apply physics forces and trigger wobble
-- Drag to orbit the camera
-- Click tech icons to spawn colour-matched balloons
-
-**Portfolio Navigation:**
-
-- Dynamic API fetched GitHub projects browser with language filtering and pagination
-- GitHub repository and deployment access via animated links
-- All consolidated to an interactive game console interface with navigation and action buttons
+`npm run test:audit`: Lighthouse across WebGPU/WebGL2 on desktop and mobile viewports, console cleanliness on both backends, and dependency checks. Vite + TypeScript SPA on GitHub Pages with a precaching service worker.

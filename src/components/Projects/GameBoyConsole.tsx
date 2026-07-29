@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+﻿import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from "framer-motion";
 import { FaGithub, FaCaretUp, FaCaretDown, FaCaretLeft, FaCaretRight } from 'react-icons/fa';
 import { HiLink } from 'react-icons/hi';
@@ -7,6 +7,12 @@ import remarkGfm from 'remark-gfm';
 import { createMarkdownComponents } from './MarkdownComponents';
 import { formatRepoName } from '../../utils/repoFormat';
 import type { Repository } from '../../types';
+
+const CONSOLE_WIDTH = 450;
+const CONSOLE_HEIGHT = 570;
+
+const getConsoleScale = (): number =>
+    Math.min(1, (document.documentElement.clientWidth - 24) / CONSOLE_WIDTH);
 
 interface GameBoyConsoleProps {
     gameboyAnimated: boolean;
@@ -24,6 +30,8 @@ interface GameBoyConsoleProps {
     handleAButtonClick: () => void;
     handleBButtonClick: () => void;
     iframeRef: React.RefObject<HTMLIFrameElement | null>;
+    crashedEmbeds: string[];
+    consoleRef?: React.Ref<HTMLDivElement>;
 }
 
 const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
@@ -41,13 +49,27 @@ const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
     totalPages,
     handleAButtonClick,
     handleBButtonClick,
-    iframeRef
+    iframeRef,
+    crashedEmbeds,
+    consoleRef
 }) => {
 
     const MarkdownComponents = useMemo(
         () => createMarkdownComponents(activeIndex, displayedRepos),
         [activeIndex, displayedRepos]
     );
+
+    const activeRepo = activeIndex !== null ? displayedRepos[activeIndex] : undefined;
+    const embedCrashed = !!activeRepo && !activeRepo.isGithubPage && !activeRepo.isPortfolio
+        && crashedEmbeds.includes(activeRepo.name);
+
+    const [scale, setScale] = useState<number>(getConsoleScale);
+
+    useEffect(() => {
+        const updateScale = (): void => setScale(getConsoleScale());
+        window.addEventListener('resize', updateScale);
+        return () => window.removeEventListener('resize', updateScale);
+    }, []);
 
     return (
         <motion.div
@@ -69,12 +91,14 @@ const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
                 delay: loading ? 0.3 : 0
             }}
         >
-            <div className="relative w-[450px] h-[570px] bg-gradient-to-br from-amber-100 to-amber-300 rounded-[15px_15px_0px_0px] p-[30px] shadow-[inset_2px_2px_3px_rgba(255,255,255,0.3),_inset_-2px_-2px_3px_rgba(0,0,0,0.3),_0_0_20px_rgba(0,0,0,0.4)]">
+            <div ref={consoleRef} style={{ width: CONSOLE_WIDTH * scale, height: CONSOLE_HEIGHT * scale }}>
+            <div className="origin-top-left" style={{ transform: `scale(${scale})` }}>
+            <div className="relative w-[450px] h-[570px] bg-gradient-to-br from-amber-200 to-amber-400 rounded-[15px_15px_0px_0px] p-[30px] shadow-[inset_2px_2px_3px_rgba(255,255,255,0.3),_inset_-2px_-2px_3px_rgba(0,0,0,0.3),_0_0_20px_rgba(0,0,0,0.4)]">
                 <div className="absolute top-[30px] left-[50%] translate-x-[-50%] w-[400px] h-[350px] bg-[#333] rounded-[15px_15px_15px_15px] shadow-[inset_0_0_10px_rgba(0,0,0,0.8)]">
                     <div className="absolute top-[20px] left-[50%] translate-x-[-50%] w-[360px] h-[310px] bg-[#9ba5aa] border-[6px] border-solid border-[#555] overflow-hidden">
                         <div className="w-full h-full relative overflow-hidden">
                             {cartridgeSelected && currentWebsite && activeIndex !== null ? (
-                                displayedRepos[activeIndex]?.isGithubPage || displayedRepos[activeIndex]?.isPortfolio ? (
+                                displayedRepos[activeIndex]?.isGithubPage || displayedRepos[activeIndex]?.isPortfolio || embedCrashed ? (
                                     <div className="w-full h-full bg-[#212121] flex flex-col overflow-hidden">
                                         <div className="bg-black p-2 flex items-center justify-between">
                                             <div className="flex items-center space-x-2">
@@ -82,6 +106,7 @@ const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
                                                 <span className="text-white font-medium truncate">
                                                     {formatRepoName(displayedRepos[activeIndex].name)}.md
                                                     {displayedRepos[activeIndex]?.isPortfolio && <span className="ml-2 text-amber-300 text-xs">(Current Site)</span>}
+                                                    {embedCrashed && <span className="ml-2 text-amber-300 text-xs">(Demo unavailable)</span>}
                                                 </span>
                                             </div>
                                         </div>
@@ -201,6 +226,8 @@ const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
                         <div className="gameboy-tooltip action-button-tooltip">View Source</div>
                     </button>
                 </div>
+            </div>
+            </div>
             </div>
         </motion.div>
     );
