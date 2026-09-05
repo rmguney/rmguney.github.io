@@ -155,8 +155,7 @@ const GameBoy = React.memo(function GameBoy() {
                 const majorNames = new Set(
                     allLanguageStats.slice(0, MAX_LANGUAGE_BADGES).map(lang => lang.name)
                 );
-                const minorLanguages = LanguageUtils.calculateRawStats(allRepos)
-                    .filter(lang => !majorNames.has(LanguageUtils.getDisplayName(lang.name)))
+                const minorLanguages = LanguageUtils.calculateMinorStats(allRepos, majorNames)
                     .map(lang => lang.name);
                 filtered = allRepos.filter(repo =>
                     LanguageUtils.repoMatchesOthers(repo, minorLanguages)

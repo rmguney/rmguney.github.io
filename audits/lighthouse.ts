@@ -36,12 +36,16 @@ const BACKEND_LAUNCH: Record<LighthouseBackend, { flags: string[]; headed: boole
     webgl2: { flags: ['--disable-features=WebGPU,WebGPUService'], headed: false },
 };
 
-async function backendIsActive(flags: string[], headed: boolean, url: string): Promise<boolean> {
-    const browser = await chromium.launch({ args: flags, headless: !headed });
+// Probes the adapter inside the very Chrome that Lighthouse will measure, over CDP.
+// Launching a separate browser here used to leave the machine busy exactly as the first
+// measurement began, and left the measuring Chrome cold; navigating the page here warms it.
+async function backendIsActive(port: number, url: string): Promise<boolean> {
+    const browser = await chromium.connectOverCDP('http://localhost:' + port);
     try {
-        const page = await browser.newPage();
+        const context = browser.contexts()[0] ?? await browser.newContext();
+        const page = await context.newPage();
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-        return await page.evaluate(async () => {
+        const active = await page.evaluate(async () => {
             if (!navigator.gpu) return false;
             try {
                 return !!(await navigator.gpu.requestAdapter());
@@ -49,6 +53,8 @@ async function backendIsActive(flags: string[], headed: boolean, url: string): P
                 return false;
             }
         });
+        await page.close();
+        return active;
     } finally {
         await browser.close();
     }
@@ -69,23 +75,23 @@ export async function run(): Promise<CheckResult> {
                 '--enable-unsafe-swiftshader',
                 ...launch.flags,
             ];
-            const gpuAvailable = await backendIsActive(flags, launch.headed, server.url);
-            const expected = backend === 'webgpu';
-
-            lines.push(bold(backend));
-            if (gpuAvailable !== expected) {
-                pass = false;
-                lines.push(`  WebGPU adapter ${gpuAvailable ? 'present' : 'absent'} - this row did NOT exercise ${backend}`);
-            } else {
-                lines.push(dim(`  adapter=${gpuAvailable}`));
-            }
-
             const chrome = await launchChrome({
                 chromePath: chromium.executablePath(),
                 chromeFlags: flags,
             });
 
             try {
+                const gpuAvailable = await backendIsActive(chrome.port, server.url);
+                const expected = backend === 'webgpu';
+
+                lines.push(bold(backend));
+                if (gpuAvailable !== expected) {
+                    pass = false;
+                    lines.push(`  WebGPU adapter ${gpuAvailable ? 'present' : 'absent'} - this row did NOT exercise ${backend}`);
+                } else {
+                    lines.push(dim(`  adapter=${gpuAvailable}`));
+                }
+
                 for (const [formFactor, thresholds] of Object.entries(LIGHTHOUSE_THRESHOLDS[backend])) {
                     const result = await lighthouse(
                         server.url,

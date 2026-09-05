@@ -13,8 +13,12 @@ export const LANGUAGE_CONFIG: LanguageConfig = {
         "Python": ["Python", "Jupyter Notebook"],
     },
 
+    // Groups that stay collapsed even inside the "Other" bucket, where
+    // languages are otherwise listed individually.
+    alwaysGrouped: ["Shell"],
+
     colors: {
-        'C#': '#178600',
+        'C#': '#7355dd',
         'C/C++': '#555555',
         'Shading': '#aace60',
         'C': '#555555',
@@ -32,12 +36,12 @@ export const LANGUAGE_CONFIG: LanguageConfig = {
         'JS Ecosystem': '#f1e05a',
         'JavaScript': '#f1e05a',
         'TypeScript': '#3178c6',
-        'Astro': '#ff5c39',
+        'Astro': '#ff5a03',
         'Svelte': '#ff3e00',
         'Vue': '#41b883',
         'ASP.NET': '#9400ff',
         'HTML': '#e34c26',
-        'CSS': '#563d7c',
+        'CSS': '#663399',
         'Shell': '#89e051',
         'Bash': '#89e051',
         'PowerShell': '#012456',

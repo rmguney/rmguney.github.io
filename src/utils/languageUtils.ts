@@ -9,6 +9,14 @@ Object.entries(LANGUAGE_CONFIG.groups).forEach(([groupName, languages]) => {
     });
 });
 
+const alwaysGroupedLookup: Record<string, string> = {};
+
+LANGUAGE_CONFIG.alwaysGrouped.forEach(groupName => {
+    (LANGUAGE_CONFIG.groups[groupName] || []).forEach((lang: string) => {
+        alwaysGroupedLookup[lang] = groupName;
+    });
+});
+
 export const LanguageUtils = {
     getDisplayName(language: string): string {
         return groupLookup[language] || language;
@@ -16,6 +24,10 @@ export const LanguageUtils = {
 
     getColor(language: string): string {
         return LANGUAGE_CONFIG.colors[language] || '#fff';
+    },
+
+    getMinorDisplayName(language: string): string {
+        return alwaysGroupedLookup[language] || language;
     },
 
     normalizeName(language: string): string {
@@ -54,6 +66,11 @@ export const LanguageUtils = {
 
     calculateRawStats(repos: Repository[]): LanguageStat[] {
         return this.aggregateStats(repos, language => language);
+    },
+
+    calculateMinorStats(repos: Repository[], majorNames: Set<string>): LanguageStat[] {
+        return this.aggregateStats(repos, language => this.getMinorDisplayName(language))
+            .filter(lang => !majorNames.has(this.getDisplayName(lang.name)));
     },
 
     repoMatchesLanguage(repo: Repository, selectedLanguage: string): boolean {

@@ -19,8 +19,7 @@ const LanguageFilter: React.FC<LanguageFilterProps> = ({
     const { majorLanguages, minorLanguages, othersPercentage } = useMemo(() => {
         const major = allLanguageStats.slice(0, MAX_LANGUAGE_BADGES);
         const majorNames = new Set(major.map(lang => lang.name));
-        const minor = LanguageUtils.calculateRawStats(allRepos)
-            .filter(lang => !majorNames.has(LanguageUtils.getDisplayName(lang.name)));
+        const minor = LanguageUtils.calculateMinorStats(allRepos, majorNames);
         const othersPercent = minor.reduce((sum, lang) => sum + lang.percentage, 0);
         return { majorLanguages: major, minorLanguages: minor, othersPercentage: othersPercent };
     }, [allLanguageStats, allRepos]);

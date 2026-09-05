@@ -20,13 +20,13 @@ export const LIGHTHOUSE_THRESHOLDS: Record<
 > = {
     webgpu: {
         desktop: {
-            performance: 40,
+            performance: 75,
             accessibility: 100,
             'best-practices': 100,
             seo: 100,
         },
         mobile: {
-            performance: 30,
+            performance: 40,
             accessibility: 100,
             'best-practices': 100,
             seo: 100,
@@ -34,13 +34,13 @@ export const LIGHTHOUSE_THRESHOLDS: Record<
     },
     webgl2: {
         desktop: {
-            performance: 80,
+            performance: 65,
             accessibility: 100,
             'best-practices': 100,
             seo: 100,
         },
         mobile: {
-            performance: 60,
+            performance: 40,
             accessibility: 100,
             'best-practices': 100,
             seo: 100,

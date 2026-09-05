@@ -41,7 +41,10 @@ export default defineConfig({
             manifest: false,
             injectManifest: {
                 globPatterns: ['**/*.{js,css,html,ico,svg,png,webp,txt,xml}'],
-                globIgnores: ['sw.mjs'],
+                // three ships its own DRACO decoder copies and they get emitted as assets,
+                // but the app always loads the decoder from /draco/ (see Scene/index.tsx),
+                // so precaching them would download ~820 KiB that is never requested.
+                globIgnores: ['sw.mjs', 'assets/draco_*.js'],
                 maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
             },
         }),

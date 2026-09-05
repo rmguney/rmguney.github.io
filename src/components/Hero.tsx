@@ -248,7 +248,7 @@ const TextBody = React.memo(function TextBody(): React.ReactElement {
                             className="mt-4 md:mt-6 max-w-[58ch] text-left md:text-justify text-xs md:text-sm leading-[1.55] md:leading-[1.65] tracking-[-0.02em]"
                             style={{ textShadow: haloSoft }}
                         >
-                            Hello! I work on interactive systems and computer graphics, and this is my personal portfolio, showcasing my public projects ranging from games and simulations to low level graphics programming. Feel free to check my{" "}
+                            Hello! I work on interactive systems and graphics, and this is my personal portfolio, showcasing my public projects spanning games, simulations, and low-level graphics programming. Feel free to check my{" "}
                             <motion.a
                                 href="https://linkedin.com/in/rmguney"
                                 target="_blank"

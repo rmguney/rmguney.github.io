@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { PatternProps } from "../types";
 
 const ICONS: string[] = [
@@ -16,6 +16,7 @@ const ICONS: string[] = [
 
 const NUM_LINES = 10;
 const ICONS_PER_LINE = 30;
+const LARGE_SCREEN_QUERY = '(min-width: 1024px)';
 
 const generatePattern = (numLines: number, iconsPerLine: number, icons: string[]): string[][] => {
     const pattern: string[][] = [];
@@ -31,13 +32,29 @@ const generatePattern = (numLines: number, iconsPerLine: number, icons: string[]
 };
 
 const Pattern: React.FC<PatternProps> = ({ size = 30 }) => {
+    // The grid below is 300 nodes and is already hidden under lg. Keeping it out of
+    // the DOM there too spares the style/layout pass on the smaller form factors.
+    const [isLargeScreen, setIsLargeScreen] = useState(false);
+
+    useEffect(() => {
+        const query = window.matchMedia(LARGE_SCREEN_QUERY);
+        const update = (): void => setIsLargeScreen(query.matches);
+        update();
+        query.addEventListener('change', update);
+        return () => query.removeEventListener('change', update);
+    }, []);
+
     const pattern = useMemo(() =>
         generatePattern(NUM_LINES, ICONS_PER_LINE, ICONS),
         []
     );
 
+    if (!isLargeScreen) return null;
+
     return (
-        <div className="relative">
+        // Shifted left by half of (console width + row gap) so the pattern centers on the
+        // cards column instead of on the row that also holds the GameBoy console.
+        <div className="relative lg:right-[237px]">
             <div
                 className={`items-center top-[135px] space-y-[24px] relative hidden lg:block`}
                 style={{ zIndex: -1, filter: 'blur(0.5px)', opacity: 0.6 }}
@@ -55,6 +72,7 @@ const Pattern: React.FC<PatternProps> = ({ size = 30 }) => {
                                     width={size * 2}
                                     height={size * 2}
                                     className="object-contain"
+                                    decoding="async"
                                     style={{ width: size, height: size }}
                                 />
                             </div>

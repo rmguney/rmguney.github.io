@@ -148,6 +148,7 @@ export interface LanguageColors {
 
 export interface LanguageConfig {
     groups: LanguageGroups;
+    alwaysGrouped: string[];
     colors: LanguageColors;
 }
 
