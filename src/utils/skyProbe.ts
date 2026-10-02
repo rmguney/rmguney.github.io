@@ -95,6 +95,17 @@ export function setSkyProbeMesh(mesh: THREE.Mesh): void {
     fitUvConvention(mesh);
 }
 
+export interface SkyMapping {
+    mesh: THREE.Mesh;
+    uSign: number;
+    uOffset: number;
+    vFlip: boolean;
+}
+
+export function getSkyMapping(): SkyMapping | null {
+    return skyMesh ? { mesh: skyMesh, uSign, uOffset, vFlip } : null;
+}
+
 export function setSkyProbeCamera(camera: THREE.Camera): void {
     probeCamera = camera;
 }

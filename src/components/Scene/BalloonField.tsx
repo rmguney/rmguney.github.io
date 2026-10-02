@@ -6,6 +6,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { useBalloons } from '../../context/BalloonContext';
 import { createBalloonMaterial, getShaderGeneration } from '../../utils/shading';
 import type { MeshBasicNodeMaterial } from 'three/webgpu';
+import type { BalloonShape } from '../../utils/softwareRenderer';
 import { ALL_BALLOON_COLORS, SCENE_BALLOON_COLORS } from '../../constants/palette';
 import React from 'react';
 import type {
@@ -42,7 +43,10 @@ function buildBalloonGeometry(): THREE.BufferGeometry {
     const merged = mergeGeometries([body, knot]);
     body.dispose();
     knot.dispose();
-    return merged ?? new THREE.SphereGeometry(2, 24, 16);
+    const geometry = merged ?? new THREE.SphereGeometry(2, 24, 16);
+    // read by the software renderer, which draws balloons as shaded sprites
+    geometry.userData.balloon = { radius: 2, knotY: -2.1, knotScale: 0.09 } satisfies BalloonShape;
+    return geometry;
 }
 
 const JIGGLE_AMOUNT = 0.018;

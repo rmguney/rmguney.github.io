@@ -11,22 +11,22 @@ import saturationWgsl from '../shaders/saturation.wgsl?raw';
 import saturationGlsl from '../shaders/saturation.glsl?raw';
 
 const RIM_COLOR = new THREE.Color('#ffffff');
-const BALLOON_RIM_POWER = 2.0;
-const BALLOON_RIM_STRENGTH = 0.65;
-const MODEL_RIM_POWER = 2.5;
-const MODEL_RIM_STRENGTH = 0.45;
+export const BALLOON_RIM_POWER = 2.0;
+export const BALLOON_RIM_STRENGTH = 0.65;
+export const MODEL_RIM_POWER = 2.5;
+export const MODEL_RIM_STRENGTH = 0.45;
 
-const CEL_LEVELS = 4.0;
-const CEL_STRENGTH = 0.9;
-const CEL_SOFTNESS = 0.45;
+export const CEL_LEVELS = 4.0;
+export const CEL_STRENGTH = 0.9;
+export const CEL_SOFTNESS = 0.45;
 
-const MODEL_CEL_FLOOR = 0.66;
-const MODEL_CEL_CEILING = 1.10;
+export const MODEL_CEL_FLOOR = 0.66;
+export const MODEL_CEL_CEILING = 1.10;
 
-const BALLOON_SATURATION = 1.12;
-const MODEL_SATURATION = 1.12;
+export const BALLOON_SATURATION = 1.12;
+export const MODEL_SATURATION = 1.12;
 
-const MODEL_LIGHT_DIR = new THREE.Vector3(-10, 10, 5).normalize();
+export const MODEL_LIGHT_DIR = new THREE.Vector3(-10, 10, 5).normalize();
 
 let useWgsl = false;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

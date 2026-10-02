@@ -1,17 +1,19 @@
-﻿import { useState, useRef, useEffect, Suspense } from "react";
+﻿import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { Canvas, useFrame, useThree, RootState } from "@react-three/fiber";
 import { useGLTF, useProgress, OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { WebGPURenderer } from 'three/webgpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { createModelMaterial, setShaderBackend, blinkAmount } from '../../utils/shading';
+import { createModelMaterial, setShaderBackend, getShaderGeneration, blinkAmount } from '../../utils/shading';
 import { BlinkController } from '../../utils/blink';
 import { loadProgress } from '../../utils/loadProgress';
 import { setSkyProbeMesh, setSkyProbeCamera } from '../../utils/skyProbe';
 import { setModelScreen } from '../../utils/modelProbe';
 import { createJiggleSolver, JiggleSolver, BodyNudge, MAX_STEP } from '../../utils/jiggleRig';
 import { prefetchAssets } from '../../utils/assetPrefetch';
+import { diag, DEBUG, RENDERER_OVERRIDE } from '../../utils/diagnostics';
+import { SoftwareRenderer } from '../../utils/softwareRenderer';
 import React from 'react';
 import type { RapierRigidBody } from "@react-three/rapier";
 import type {
@@ -28,9 +30,47 @@ import type {
 
 const BalloonField = React.lazy(() => import('./BalloonField'));
 
+type RendererTier = 'webgpu' | 'webgl' | 'software-webgpu' | 'cpu';
+
+const FORCE_WEBGL = import.meta.env.VITE_FORCE_WEBGL === '1';
+const WEBGL_PREFERENCE_KEY = 'renderer:webgl';
+
+function readWebGLPreference(): boolean {
+    try {
+        return sessionStorage.getItem(WEBGL_PREFERENCE_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function storeWebGLPreference(): void {
+    try {
+        sessionStorage.setItem(WEBGL_PREFERENCE_KEY, '1');
+    } catch {
+        // storage unavailable, the fallback just reruns next load
+    }
+}
+
+let preferWebGL = FORCE_WEBGL
+    || RENDERER_OVERRIDE === 'webgl'
+    || (RENDERER_OVERRIDE !== 'webgpu' && readWebGLPreference());
+let forceCpu = RENDERER_OVERRIDE === 'cpu';
+let activeTier: RendererTier = 'webgpu';
+let webgpuRenderer: WebGPURenderer | null = null;
+let backendFailureHandler: ((reason: string, fatal: boolean) => void) | null = null;
+
+// fatal: the tier never came up. Otherwise a runtime report, which only the WebGPU
+// tiers act on since their failures are the ones that leave the canvas blank
+function reportBackendFailure(reason: string, fatal = false): void {
+    diag('backend failure reported:', reason, 'tier', activeTier, fatal ? '(fatal)' : '');
+    backendFailureHandler?.(reason, fatal);
+}
+
 THREE.setConsoleFunction((type: 'log' | 'warn' | 'error', message: string, ...params: unknown[]) => {
     if (type === 'warn' && message.startsWith('THREE.Clock: This module has been deprecated')) return;
     console[type](message, ...params);
+    // pipeline, validation and device-loss failures all surface as three errors
+    if (type === 'error') reportBackendFailure(message);
 });
 
 class Vector3Pool implements IVector3Pool {
@@ -82,6 +122,12 @@ const assetPrefetch = prefetchAssets([MODEL_URL, SKYBOX_PREVIEW_URL]);
 const MOBILE_BREAKPOINT = 768;
 const DPR_RANGE: [number, number] = [1, 2];
 const LAYOUT_WAIT_FRAMES = 40;
+const RENDERER_INIT_TIMEOUT = 6000;
+const RENDERER_DISPOSE_DELAY = 1000;
+const SCENE_STALL_TIMEOUT = 10000;
+const WEBGL_RETRY_COUNT = 3;
+const WEBGL_RETRY_DELAY = 1000;
+const ADAPTER_PROBE_TIMEOUT = 2000;
 
 function isUnlaidOut({ w, h }: { w: number; h: number }): boolean {
     return w === 0 || h === 0 || (w === 300 && h === 150);
@@ -119,7 +165,6 @@ const MODEL_FLOAT_AMPLITUDE = 0.95;
 const MODEL_FLOAT_SPEED = 1.05;
 const MODEL_DRIFT_AMPLITUDE = 0.85;
 const MODEL_DRIFT_SPEED = 0.37;
-const FORCE_WEBGL = import.meta.env.VITE_FORCE_WEBGL === '1';
 
 const tmpMeasureBox = new THREE.Box3();
 
@@ -204,9 +249,10 @@ function Model({ setModelLoaded, pokeRef, colliderRef, setColliderShape }: Model
             if (child instanceof THREE.Mesh) {
                 child.castShadow = false;
                 child.receiveShadow = false;
-                if (child.material && !(child.material as THREE.Material).userData.celShaded) {
+                const generation = getShaderGeneration();
+                if (child.material && (child.material as THREE.Material).userData.celShaded !== generation) {
                     const shaded = createModelMaterial(child.material as THREE.Material);
-                    shaded.userData.celShaded = true;
+                    shaded.userData.celShaded = generation;
                     child.material = shaded;
                 }
             }
@@ -370,7 +416,8 @@ function Skybox({ setSkyboxLoaded }: SkyboxProps): React.ReactElement {
     const [fullScene, setFullScene] = useState<THREE.Group | null>(null);
 
     useEffect(() => {
-        if (window.innerWidth <= MOBILE_BREAKPOINT) return;
+        // the CPU renderer samples the sky at half resolution, the preview already covers it
+        if (window.innerWidth <= MOBILE_BREAKPOINT || activeTier === 'cpu') return;
 
         let cancelled = false;
         const draco = new DRACOLoader();
@@ -454,10 +501,40 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
     const [assetsFetched, setAssetsFetched] = useState<boolean>(false);
 
     useEffect(() => {
+        diag('scene: mounted');
         void assetPrefetch.then(() => setAssetsFetched(true));
     }, []);
 
     const assetsReady = modelLoadedState && skyboxLoadedState;
+
+    useEffect(() => {
+        diag('scene: assets fetched', assetsFetched, 'model', modelLoadedState,
+            'skybox', skyboxLoadedState, 'ready', sceneReady);
+    }, [assetsFetched, modelLoadedState, skyboxLoadedState, sceneReady]);
+
+    useEffect(() => {
+        if (!DEBUG || !sceneReady) return;
+        // read a few frames after the first ones so a blank canvas shows up as zeros
+        const timer = setTimeout(() => {
+            const canvas = gl.domElement as HTMLCanvasElement;
+            const probe = document.createElement('canvas');
+            probe.width = 8;
+            probe.height = 8;
+            const ctx = probe.getContext('2d');
+            const sample = (): void => {
+                try {
+                    ctx?.drawImage(canvas, 0, 0, 8, 8);
+                    const data = ctx?.getImageData(0, 0, 8, 8).data;
+                    diag('canvas sample (rgba, 4 px):', data ? Array.from(data.slice(0, 16)) : 'no 2d context',
+                        'size', `${canvas.width}x${canvas.height}`, 'css', `${canvas.clientWidth}x${canvas.clientHeight}`);
+                } catch (error) {
+                    diag('canvas sample failed:', error);
+                }
+            };
+            requestAnimationFrame(sample);
+        }, 1500);
+        return () => clearTimeout(timer);
+    }, [sceneReady, gl]);
 
     useEffect(() => {
         const handleVisibility = (): void => setPhysicsPaused(document.hidden);
@@ -499,6 +576,15 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
         loadProgress.setPhase('scene', 1);
         setModelLoaded(true);
     }, [sceneReady, setModelLoaded]);
+
+    useEffect(() => {
+        if (!assetsFetched || sceneReady) return;
+        const timer = setTimeout(
+            () => reportBackendFailure('scene stalled before its first frames'),
+            SCENE_STALL_TIMEOUT
+        );
+        return () => clearTimeout(timer);
+    }, [assetsFetched, sceneReady]);
 
     useEffect(() => {
         if (!assetsReady || sceneReady) return;
@@ -734,6 +820,39 @@ function Scene3D({ setModelLoaded }: Scene3DProps): React.ReactElement {
 }
 
 const rendererPromises = new WeakMap<HTMLCanvasElement, Promise<WebGPURenderer>>();
+const rendererTiers = new WeakMap<HTMLCanvasElement, RendererTier>();
+
+function canCreateWebGL2(): boolean {
+    const context = document.createElement('canvas').getContext('webgl2');
+    context?.getExtension('WEBGL_lose_context')?.loseContext();
+    return context !== null;
+}
+
+const webgl2AtStartup = canCreateWebGL2();
+
+interface GpuAdapter {
+    requestDevice(): Promise<unknown>;
+}
+
+function requestAdapter(options: object): Promise<GpuAdapter | null> {
+    const gpu = (navigator as Navigator & {
+        gpu?: { requestAdapter(options: object): Promise<GpuAdapter | null> };
+    }).gpu;
+    if (!gpu) return Promise.resolve(null);
+    return Promise.race([
+        gpu.requestAdapter(options).catch(() => null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), ADAPTER_PROBE_TIMEOUT)),
+    ]);
+}
+
+async function requestSoftwareDevice(): Promise<unknown> {
+    try {
+        const adapter = await requestAdapter({ forceFallbackAdapter: true });
+        return adapter ? await adapter.requestDevice() : null;
+    } catch {
+        return null;
+    }
+}
 
 async function createRenderer(canvas: HTMLCanvasElement): Promise<WebGPURenderer> {
     const pixelRatio = Math.min(
@@ -761,34 +880,99 @@ async function createRenderer(canvas: HTMLCanvasElement): Promise<WebGPURenderer
     canvas.width = Math.max(1, Math.floor(width * pixelRatio));
     canvas.height = Math.max(1, Math.floor(height * pixelRatio));
 
-    const build = async (forceWebGL: boolean): Promise<WebGPURenderer> => {
+    const build = async (forceWebGL: boolean, device?: unknown): Promise<WebGPURenderer> => {
         const renderer = new WebGPURenderer({
             canvas,
             antialias: true,
             alpha: false,
             forceWebGL,
+            ...(device ? { device } : {}),
         });
 
         renderer.setPixelRatio(pixelRatio);
         renderer.setSize(width, height, false);
 
-        await renderer.init();
+        let timer = 0;
+        try {
+            await Promise.race([
+                renderer.init(),
+                new Promise<never>((_, reject) => {
+                    timer = window.setTimeout(
+                        () => reject(new Error('Renderer init timed out')),
+                        RENDERER_INIT_TIMEOUT
+                    );
+                }),
+            ]);
+        } catch (error) {
+            try {
+                renderer.dispose();
+            } catch {
+                // half-initialized renderer, nothing to release
+            }
+            throw error;
+        } finally {
+            clearTimeout(timer);
+        }
 
         renderer.setPixelRatio(pixelRatio);
         renderer.setSize(width, height, false);
         return renderer;
     };
 
-    let renderer: WebGPURenderer;
-    try {
-        renderer = await build(FORCE_WEBGL);
-    } catch (error) {
-        if (FORCE_WEBGL) throw error;
-        console.warn('WebGPU init failed, retrying with WebGL2 backend', error);
-        renderer = await build(true);
+    // without WebGL2 the WebGPU tier has no fallback to land on inside three, so only
+    // take it when an adapter is really there
+    if (!forceCpu && !preferWebGL && !webgl2AtStartup && !(await requestAdapter({}))) {
+        preferWebGL = true;
     }
 
-    setShaderBackend(renderer.backend?.isWebGPUBackend === true);
+    let softwareDevice: unknown = null;
+    if (!forceCpu && preferWebGL) {
+        // right after a GPU process crash the context comes back null for a moment
+        let available = canCreateWebGL2();
+        const retries = webgl2AtStartup ? WEBGL_RETRY_COUNT : 0;
+        for (let attempt = 1; !available && attempt <= retries; attempt++) {
+            diag('renderer: webgl2 context unavailable, retry', attempt);
+            await new Promise<void>((resolve) => setTimeout(resolve, WEBGL_RETRY_DELAY));
+            available = canCreateWebGL2();
+        }
+        if (!available) {
+            // no GPU-backed context at all: Chrome can still expose a CPU WebGPU adapter
+            softwareDevice = await requestSoftwareDevice();
+            if (!softwareDevice) forceCpu = true;
+        }
+    }
+
+    activeTier = forceCpu ? 'cpu' : softwareDevice ? 'software-webgpu' : preferWebGL ? 'webgl' : 'webgpu';
+    rendererTiers.set(canvas, activeTier);
+    diag('renderer: building', activeTier, `${canvas.width}x${canvas.height}`, 'dpr', pixelRatio);
+
+    if (forceCpu) {
+        // no GPU API of any kind: draw the scene on a 2D canvas instead
+        const software = new SoftwareRenderer(canvas);
+        software.setSize(width, height, false);
+        setShaderBackend(false);
+        diag('renderer: ready on cpu');
+        return software as unknown as WebGPURenderer;
+    }
+
+    const renderer = softwareDevice ? await build(false, softwareDevice) : await build(preferWebGL);
+
+    const isWebGPU = renderer.backend?.isWebGPUBackend === true;
+    diag('renderer: ready on', isWebGPU ? 'webgpu' : 'webgl2');
+    if (isWebGPU) {
+        webgpuRenderer = renderer;
+        const render = renderer.render.bind(renderer);
+        renderer.render = (scene, camera) => {
+            try {
+                render(scene, camera);
+            } catch (error) {
+                console.error(error);
+                reportBackendFailure(`render threw: ${String(error)}`);
+            }
+        };
+    }
+
+    setShaderBackend(isWebGPU);
     return renderer;
 }
 
@@ -803,15 +987,64 @@ function acquireRenderer(props: unknown): Promise<WebGPURenderer> {
 }
 
 export default function Scene({ setModelLoaded }: SceneProps): React.ReactElement {
+    const [stage, setStage] = useState<string>(forceCpu ? 'cpu' : preferWebGL ? 'webgl' : 'auto');
+    const [failure, setFailure] = useState<unknown>(null);
+    if (failure) throw failure;
+
+    useEffect(() => {
+        backendFailureHandler = (reason: string, fatal: boolean): void => {
+            if (forceCpu) return;
+            if (!preferWebGL) {
+                console.warn('WebGPU backend failed, remounting the scene on WebGL2:', reason);
+                preferWebGL = true;
+                storeWebGLPreference();
+                setStage('webgl');
+            } else if (fatal || activeTier === 'software-webgpu') {
+                console.warn('GPU rendering failed, remounting the scene on the CPU renderer:', reason);
+                forceCpu = true;
+                setStage('cpu');
+            } else {
+                return;
+            }
+
+            const stale = webgpuRenderer;
+            webgpuRenderer = null;
+            if (stale) {
+                setTimeout(() => {
+                    try {
+                        stale.dispose();
+                    } catch {
+                        // device already gone
+                    }
+                }, RENDERER_DISPOSE_DELAY);
+            }
+        };
+        return () => {
+            backendFailureHandler = null;
+        };
+    }, []);
+
+    // R3F never surfaces a rejected gl promise: a failed GPU tier moves on to the
+    // next one, a failed CPU renderer goes to the error boundary
+    const gl = useCallback((props: unknown): Promise<WebGPURenderer> => {
+        const canvas = (props as { canvas: HTMLCanvasElement }).canvas;
+        return acquireRenderer(props).catch((error: unknown) => {
+            if (rendererTiers.get(canvas) === 'cpu') setFailure(error ?? new Error('Renderer init failed'));
+            else reportBackendFailure(`init failed: ${String(error)}`, true);
+            return new Promise<WebGPURenderer>(() => { });
+        });
+    }, []);
+
     return (
         <div style={{
             width: '100%',
             height: '100%',
         }}>
             <Canvas
+                key={stage}
                 flat
                 dpr={DPR_RANGE}
-                gl={acquireRenderer}
+                gl={gl}
             >
                 <Scene3D setModelLoaded={setModelLoaded} />
             </Canvas>

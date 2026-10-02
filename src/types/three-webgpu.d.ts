@@ -13,6 +13,7 @@ export interface WebGPURendererParameters {
     antialias?: boolean;
     alpha?: boolean;
     forceWebGL?: boolean;
+    device?: unknown;
 }
 
 export interface WebGPUBackend {
@@ -23,9 +24,10 @@ export declare class WebGPURenderer {
     constructor(parameters?: WebGPURendererParameters);
     readonly backend?: WebGPUBackend;
     init(): Promise<void>;
-    render(scene: Scene, camera: Camera): void;
+    render: (scene: Scene, camera: Camera) => void;
     setSize(width: number, height: number, updateStyle?: boolean): void;
     setPixelRatio(value: number): void;
+    dispose(): void;
 }
 
 export declare class MeshPhysicalNodeMaterial extends MeshPhysicalMaterial {

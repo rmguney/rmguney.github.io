@@ -8,10 +8,12 @@ import Guide from "./components/Guide";
 import MobileDivider from "./components/MobileDivider";
 import { loadProgress } from './utils/loadProgress';
 import { fetchReposData } from './utils/prefetchRepos';
+import { diag } from './utils/diagnostics';
 
 const Scene = lazy(() => import("./components/Scene"));
 const Projects = lazy(() => import("./components/Projects"));
 
+const SCENE_WATCHDOG_MS = 20000;
 interface SceneBoundaryProps {
     onError: () => void;
     children: React.ReactNode;
@@ -46,6 +48,17 @@ export default function App(): React.ReactElement {
     }, []);
 
     useEffect(() => {
+        if (sceneLoaded) return;
+        const timer = setTimeout(() => {
+            console.warn('Scene did not become ready in time, revealing the page without waiting');
+            loadProgress.setPhase('assets', 1);
+            loadProgress.setPhase('scene', 1);
+            setSceneLoaded(true);
+        }, SCENE_WATCHDOG_MS);
+        return () => clearTimeout(timer);
+    }, [sceneLoaded]);
+
+    useEffect(() => {
         let active = true;
         const done = (): void => {
             if (!active) return;
@@ -60,6 +73,7 @@ export default function App(): React.ReactElement {
 
     useEffect(() => {
         if (!sceneLoaded || !reposLoaded) return;
+        diag('app: revealing page');
         const timer = setTimeout(() => setRevealed(true), 140);
         return () => clearTimeout(timer);
     }, [sceneLoaded, reposLoaded]);
