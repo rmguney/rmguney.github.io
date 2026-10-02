@@ -4,6 +4,7 @@ import {
     MODEL_LIGHT_DIR, CEL_LEVELS, CEL_STRENGTH, CEL_SOFTNESS, MODEL_CEL_FLOOR, MODEL_CEL_CEILING,
     MODEL_RIM_POWER, MODEL_RIM_STRENGTH, MODEL_SATURATION,
     BALLOON_RIM_POWER, BALLOON_RIM_STRENGTH, BALLOON_SATURATION,
+    EYES, LID_EDGE, LASH_WIDTH, LASH_STRENGTH, LASH_COLOR, blinkAmount,
 } from './shading';
 
 // Canvas 2D renderer for browsers that expose no GPU API at all (no WebGPU, no WebGL).
@@ -28,6 +29,11 @@ const MODEL_BUFFER_STEP = 128;
 const SLOW_FRAME_MS = 30;
 const SLOW_FRAME_WINDOW = 30;
 const TWO_PI = Math.PI * 2;
+const BLINK_EPSILON = 1e-3;
+// triangles this far out (in eye radii) can still overlap the eyelid ellipsoid
+const EYE_REACH = 2;
+
+const eyeSkins = EYES.map((eye) => new THREE.Color(eye.skin));
 
 const srgbToLinear = new Float32Array(256);
 for (let i = 0; i < 256; i++) {
@@ -94,6 +100,8 @@ interface SkinnedCache {
     skinIndex: Uint16Array;
     skinWeight: Float32Array;
     index: Uint32Array;
+    rawPosition: Float32Array;
+    eyeTriangle: Uint8Array;
     screenX: Float32Array;
     screenY: Float32Array;
     depth: Float32Array;
@@ -610,6 +618,8 @@ export class SoftwareRenderer {
                 skinIndex: new Uint16Array(count * 4),
                 skinWeight: new Float32Array(count * 4),
                 index: Uint32Array.from(index.array),
+                rawPosition: new Float32Array(count * 3),
+                eyeTriangle: new Uint8Array(index.count / 3),
                 screenX: new Float32Array(count),
                 screenY: new Float32Array(count),
                 depth: new Float32Array(count),
@@ -621,6 +631,9 @@ export class SoftwareRenderer {
                 textureHeight: 0,
             };
             for (let i = 0; i < count; i++) {
+                cache.rawPosition[i * 3] = position.getX(i);
+                cache.rawPosition[i * 3 + 1] = position.getY(i);
+                cache.rawPosition[i * 3 + 2] = position.getZ(i);
                 scratch.fromBufferAttribute(position, i).applyMatrix4(mesh.bindMatrix);
                 cache.position[i * 3] = scratch.x;
                 cache.position[i * 3 + 1] = scratch.y;
@@ -643,6 +656,23 @@ export class SoftwareRenderer {
                 cache.skinWeight[i * 4 + 1] = w1 / total;
                 cache.skinWeight[i * 4 + 2] = w2 / total;
                 cache.skinWeight[i * 4 + 3] = w3 / total;
+            }
+            // the eyelids are painted in bind-pose space, like positionGeometry in the shader
+            const raw = cache.rawPosition;
+            for (let t = 0; t < cache.eyeTriangle.length; t++) {
+                for (let e = 0; e < EYES.length && cache.eyeTriangle[t] === 0; e++) {
+                    const { center, radii } = EYES[e];
+                    for (let k = 0; k < 3; k++) {
+                        const v = cache.index[t * 3 + k] * 3;
+                        const qx = (raw[v] - center[0]) / radii[0];
+                        const qy = (raw[v + 1] - center[1]) / radii[1];
+                        const qz = (raw[v + 2] - center[2]) / radii[2];
+                        if (qx * qx + qy * qy + qz * qz < EYE_REACH * EYE_REACH) {
+                            cache.eyeTriangle[t] = e + 1;
+                            break;
+                        }
+                    }
+                }
             }
             this.skinned.set(geometry, cache);
         }
@@ -765,7 +795,10 @@ export class SoftwareRenderer {
         pixels.fill(0);
         zbuffer.fill(0);
 
-        const { index, uv, texture, textureWidth: tw, textureHeight: th } = cache;
+        const { index, uv, texture, textureWidth: tw, textureHeight: th, rawPosition, eyeTriangle } = cache;
+        const blink = blinkAmount.value;
+        const blinking = blink > BLINK_EPSILON;
+        const lidY = 1.25 - blink * 2.5;
         const tint = (mesh.material as THREE.MeshBasicMaterial).color;
         const tr = tint ? tint.r : 1, tg = tint ? tint.g : 1, tb = tint ? tint.b : 1;
 
@@ -803,6 +836,26 @@ export class SoftwareRenderer {
             const la = lambert[ia], lb = lambert[ib], lc = lambert[ic];
             const fa = fresnel[ia], fb = fresnel[ib], fc = fresnel[ic];
 
+            const eye = blinking ? eyeTriangle[t / 3] : 0;
+            let qax = 0, qay = 0, qaz = 0, qbx = 0, qby = 0, qbz = 0, qcx = 0, qcy = 0, qcz = 0;
+            let skinR = 0, skinG = 0, skinB = 0;
+            if (eye) {
+                const { center, radii } = EYES[eye - 1];
+                qax = (rawPosition[ia * 3] - center[0]) / radii[0];
+                qay = (rawPosition[ia * 3 + 1] - center[1]) / radii[1];
+                qaz = (rawPosition[ia * 3 + 2] - center[2]) / radii[2];
+                qbx = (rawPosition[ib * 3] - center[0]) / radii[0];
+                qby = (rawPosition[ib * 3 + 1] - center[1]) / radii[1];
+                qbz = (rawPosition[ib * 3 + 2] - center[2]) / radii[2];
+                qcx = (rawPosition[ic * 3] - center[0]) / radii[0];
+                qcy = (rawPosition[ic * 3 + 1] - center[1]) / radii[1];
+                qcz = (rawPosition[ic * 3 + 2] - center[2]) / radii[2];
+                const skin = eyeSkins[eye - 1];
+                skinR = skin.r;
+                skinG = skin.g;
+                skinB = skin.b;
+            }
+
             for (let y = ty0; y <= ty1; y++) {
                 let w0 = row0;
                 let w1 = row1;
@@ -826,6 +879,23 @@ export class SoftwareRenderer {
                         r *= texture[o];
                         g *= texture[o + 1];
                         b *= texture[o + 2];
+                    }
+
+                    if (eye) {
+                        const qx = w0 * qax + w1 * qbx + w2 * qcx;
+                        const qy = w0 * qay + w1 * qby + w2 * qcy;
+                        const qz = w0 * qaz + w1 * qbz + w2 * qcz;
+                        const inside = 1 - smoothstep(0.90, 1.04, Math.sqrt(qx * qx + qy * qy + qz * qz));
+                        if (inside > 0) {
+                            const lid = inside * smoothstep(lidY - LID_EDGE, lidY + LID_EDGE, qy);
+                            r += (skinR - r) * lid;
+                            g += (skinG - g) * lid;
+                            b += (skinB - b) * lid;
+                            const lash = inside * (1 - smoothstep(0, LASH_WIDTH, Math.abs(qy - lidY))) * LASH_STRENGTH;
+                            r += (LASH_COLOR.r - r) * lash;
+                            g += (LASH_COLOR.g - g) * lash;
+                            b += (LASH_COLOR.b - b) * lash;
+                        }
                     }
 
                     let li = ((w0 * la + w1 * lb + w2 * lc) * LUT_SIZE) | 0;

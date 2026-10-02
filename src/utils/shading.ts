@@ -57,21 +57,21 @@ function getModelFn(): unknown {
 const rimColorNode = vec3(RIM_COLOR.r, RIM_COLOR.g, RIM_COLOR.b);
 const modelLightNode = vec3(MODEL_LIGHT_DIR.x, MODEL_LIGHT_DIR.y, MODEL_LIGHT_DIR.z);
 
-interface EyeDef {
+export interface EyeDef {
     center: [number, number, number];
     radii: [number, number, number];
     skin: string;
 }
 
-const EYES: EyeDef[] = [
+export const EYES: EyeDef[] = [
     { center: [-0.0922, 0.4390, 0.0649], radii: [0.0285, 0.0310, 0.0350], skin: '#efc761' },
     { center: [0.0302, 0.4266, 0.1217], radii: [0.0345, 0.0325, 0.0370], skin: '#edc459' },
 ];
 
-const LID_EDGE = 0.10;
-const LASH_WIDTH = 0.22;
-const LASH_STRENGTH = 0.55;
-const LASH_COLOR = new THREE.Color('#7a5a24');
+export const LID_EDGE = 0.10;
+export const LASH_WIDTH = 0.22;
+export const LASH_STRENGTH = 0.55;
+export const LASH_COLOR = new THREE.Color('#7a5a24');
 const UP_NODE = vec3(0, 1, 0);
 
 export const blinkAmount = uniform(0);

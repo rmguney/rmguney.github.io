@@ -121,6 +121,8 @@ const SKYBOX_FULL_URL = `/models/skybox.glb${ASSET_QUERY}`;
 const assetPrefetch = prefetchAssets([MODEL_URL, SKYBOX_PREVIEW_URL]);
 const MOBILE_BREAKPOINT = 768;
 const DPR_RANGE: [number, number] = [1, 2];
+// R3F otherwise picks PCFSoftShadowMap, which three no longer has and warns about
+const SHADOWS_OFF = { enabled: false, type: THREE.PCFShadowMap };
 const LAYOUT_WAIT_FRAMES = 40;
 const RENDERER_INIT_TIMEOUT = 6000;
 const RENDERER_DISPOSE_DELAY = 1000;
@@ -416,8 +418,7 @@ function Skybox({ setSkyboxLoaded }: SkyboxProps): React.ReactElement {
     const [fullScene, setFullScene] = useState<THREE.Group | null>(null);
 
     useEffect(() => {
-        // the CPU renderer samples the sky at half resolution, the preview already covers it
-        if (window.innerWidth <= MOBILE_BREAKPOINT || activeTier === 'cpu') return;
+        if (window.innerWidth <= MOBILE_BREAKPOINT) return;
 
         let cancelled = false;
         const draco = new DRACOLoader();
@@ -1043,6 +1044,7 @@ export default function Scene({ setModelLoaded }: SceneProps): React.ReactElemen
             <Canvas
                 key={stage}
                 flat
+                shadows={SHADOWS_OFF}
                 dpr={DPR_RANGE}
                 gl={gl}
             >
