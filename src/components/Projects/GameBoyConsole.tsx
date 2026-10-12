@@ -1,12 +1,18 @@
-﻿import React, { useMemo, useState, useEffect } from 'react';
+﻿import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { motion } from "framer-motion";
 import { FaGithub, FaCaretUp, FaCaretDown, FaCaretLeft, FaCaretRight } from 'react-icons/fa';
 import { HiLink } from 'react-icons/hi';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { createMarkdownComponents } from './MarkdownComponents';
 import { formatRepoName } from '../../utils/repoFormat';
 import type { Repository } from '../../types';
+
+const ReadmeMarkdown = lazy(() => import('./ReadmeMarkdown'));
+
+const readmeSpinner = (
+    <div className="flex items-center justify-center h-full">
+        <div className="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent rounded-full"></div>
+        <span className="ml-2">Loading README...</span>
+    </div>
+);
 
 const CONSOLE_WIDTH = 450;
 const CONSOLE_HEIGHT = 570;
@@ -53,11 +59,6 @@ const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
     crashedEmbeds,
     consoleRef
 }) => {
-
-    const MarkdownComponents = useMemo(
-        () => createMarkdownComponents(activeIndex, displayedRepos),
-        [activeIndex, displayedRepos]
-    );
 
     const activeRepo = activeIndex !== null ? displayedRepos[activeIndex] : undefined;
     const embedCrashed = !!activeRepo && !activeRepo.isGithubPage && !activeRepo.isPortfolio
@@ -114,27 +115,19 @@ const GameBoyConsole: React.FC<GameBoyConsoleProps> = ({
                                         <div
                                             className="flex-1 overflow-y-auto p-4 text-white/90 text-sm bg-[#1a1a1a] readme-scrollbar"
                                         >
-                                            {readmeLoading ? (
-                                                <div className="flex items-center justify-center h-full">
-                                                    <div className="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent rounded-full"></div>
-                                                    <span className="ml-2">Loading README...</span>
-                                                </div>
-                                            ) : (
-                                                <div className="markdown-body w-full">
-                                                    {displayedRepos[activeIndex]?.isPortfolio && !readmeContent && (
-                                                        <div className="p-4 text-center">
-                                                            <h1 className="text-xl font-bold text-amber-300 mb-4">Portfolio Website Repository</h1>
-                                                            <p>This is the repository for the website you are currently viewing.</p>
-                                                            <p className="mt-4 text-white/60">README content is loading or not available.</p>
-                                                        </div>
-                                                    )}
-                                                    <ReactMarkdown
-                                                        remarkPlugins={[remarkGfm]}
-                                                        components={MarkdownComponents}
-                                                    >
-                                                        {readmeContent}
-                                                    </ReactMarkdown>
-                                                </div>
+                                            {readmeLoading ? readmeSpinner : (
+                                                <Suspense fallback={readmeSpinner}>
+                                                    <div className="markdown-body w-full">
+                                                        {displayedRepos[activeIndex]?.isPortfolio && !readmeContent && (
+                                                            <div className="p-4 text-center">
+                                                                <h1 className="text-xl font-bold text-amber-300 mb-4">Portfolio Website Repository</h1>
+                                                                <p>This is the repository for the website you are currently viewing.</p>
+                                                                <p className="mt-4 text-white/60">README content is loading or not available.</p>
+                                                            </div>
+                                                        )}
+                                                        <ReadmeMarkdown content={readmeContent} githubUrl={activeRepo?.githubUrl} />
+                                                    </div>
+                                                </Suspense>
                                             )}
                                         </div>
                                     </div>

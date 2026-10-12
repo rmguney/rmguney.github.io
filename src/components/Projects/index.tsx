@@ -506,6 +506,14 @@ const GameBoy = React.memo(function GameBoy() {
         scrollbar-width: thin;
         scrollbar-color: #444 #2a2a2a;
       }
+      .markdown-body img[align="right"] {
+        max-width: 45%;
+        margin: 0 0 8px 12px;
+      }
+      .markdown-body img[align="left"] {
+        max-width: 45%;
+        margin: 0 12px 8px 0;
+      }
       
       .gameboy-tooltip {
         position: absolute;

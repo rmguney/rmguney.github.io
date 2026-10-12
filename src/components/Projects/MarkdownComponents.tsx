@@ -1,62 +1,58 @@
 ﻿import React from 'react';
 import type { Components } from 'react-markdown';
-import type { Repository } from '../../types';
 
-export const createMarkdownComponents = (activeIndex: number | null, displayedRepos: Repository[]): Components => {
+const isRepoRelative = (url: string): boolean => !/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(url);
+
+const resolveAgainst = (url: string, base: string | null): string => {
+    if (!base || !isRepoRelative(url)) return url;
+    try {
+        return new URL(url.replace(/^\/+/, ''), base).href;
+    } catch {
+        return url;
+    }
+};
+
+const resolveSrcSet = (srcSet: string, base: string | null): string =>
+    srcSet.split(',').map(candidate => {
+        const [url, ...descriptors] = candidate.trim().split(/\s+/);
+        return [resolveAgainst(url, base), ...descriptors].join(' ');
+    }).join(', ');
+
+const repoPathOf = (githubUrl?: string): string | null => {
+    try {
+        return githubUrl ? new URL(githubUrl).pathname.replace(/^\/|\/$/g, '') || null : null;
+    } catch {
+        return null;
+    }
+};
+
+export const createMarkdownComponents = (githubUrl?: string): Components => {
+    const repoPath = repoPathOf(githubUrl);
+    const rawBase = repoPath ? `https://raw.githubusercontent.com/${repoPath}/HEAD/` : null;
+    const blobBase = repoPath ? `https://github.com/${repoPath}/blob/HEAD/` : null;
+
     return {
-        code({ node: _node, className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || '')
-            return match ? (
-                <pre className="bg-[#212121] p-3 rounded-md overflow-x-auto my-4">
-                    <code {...props} className={className}>
-                        {String(children).replace(/\n$/, '')}
-                    </code>
-                </pre>
-            ) : (
-                <code className="bg-[#212121] px-1.5 py-0.5 rounded text-sm" {...props}>
-                    {children}
-                </code>
-            )
+        code({ node: _node, className, ...props }) {
+            return <code className={`bg-[#212121] px-1.5 py-0.5 rounded text-sm ${className ?? ''}`} {...props} />
         },
-        a({ node: _node, ...props }) {
-            return <a className="text-amber-300 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />
+        a({ node: _node, href, ...props }) {
+            return <a className="text-amber-300 hover:underline" target="_blank" rel="noopener noreferrer" href={href && resolveAgainst(href, blobBase)} {...props} />
         },
-        img({ node: _node, src, alt, ...props }) {
-            let imageSrc = typeof src === 'string' ? src : undefined;
-            if (activeIndex !== null && displayedRepos[activeIndex] && imageSrc && !imageSrc.startsWith('http')) {
-                const repo = displayedRepos[activeIndex];
-                const githubUrl = repo.githubUrl;
-                const urlParts = githubUrl.split('/');
-                const owner = urlParts[urlParts.length - 2];
-                const repoName = urlParts[urlParts.length - 1];
-
-                if (imageSrc.startsWith('./')) {
-                    imageSrc = `https://raw.githubusercontent.com/${owner}/${repoName}/main/${imageSrc.slice(2)}`;
-                } else if (imageSrc.startsWith('/')) {
-                    imageSrc = `https://raw.githubusercontent.com/${owner}/${repoName}/main${imageSrc}`;
-                } else if (!imageSrc.startsWith('#')) {
-                    imageSrc = `https://raw.githubusercontent.com/${owner}/${repoName}/main/${imageSrc}`;
-                }
-            }
-
+        img({ node: _node, src, ...props }) {
             return (
                 <img
-                    className="max-w-full h-auto my-4 rounded first:mt-0"
-                    style={{ maxHeight: '200px' }}
+                    className="inline max-w-full h-auto"
                     loading="lazy"
-                    src={imageSrc}
-                    alt={alt}
+                    src={typeof src === 'string' ? resolveAgainst(src, rawBase) : undefined}
                     onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                        const image = e.currentTarget;
-                        if (image.src.includes('/main/')) {
-                            image.src = image.src.replace('/main/', '/master/');
-                        } else {
-                            image.style.display = 'none';
-                        }
+                        e.currentTarget.style.display = 'none';
                     }}
                     {...props}
                 />
             )
+        },
+        source({ node: _node, srcSet, ...props }) {
+            return <source srcSet={typeof srcSet === 'string' ? resolveSrcSet(srcSet, rawBase) : undefined} {...props} />
         },
         h1({ node: _node, ...props }) {
             return <h1 className="text-xl font-bold border-b border-[#333333] pb-1 mb-4 mt-6 first:mt-0" {...props} />
@@ -107,8 +103,8 @@ export const createMarkdownComponents = (activeIndex: number | null, displayedRe
         hr({ node: _node, ...props }) {
             return <hr className="border-[#333333] my-4 first:mt-0" {...props} />
         },
-        pre({ node: _node, children, ...props }) {
-            return <pre className="bg-transparent first:mt-0" {...props}>{children}</pre>
+        pre({ node: _node, ...props }) {
+            return <pre className="bg-[#212121] p-3 rounded-md overflow-x-auto my-4 first:mt-0 [&>code]:p-0 [&>code]:bg-transparent [&>code]:rounded-none" {...props} />
         },
     };
 };
