@@ -144,7 +144,7 @@ export async function applyLiveStats(baseline: Repository[]): Promise<Repository
     const byId = new Map(sources.map(repo => [repo.id, repo]));
     let changed = false;
 
-    const kept: Repository[] = [];
+    const pending: Promise<Repository>[] = [];
     for (const repo of baseline) {
         const fresh = byId.get(repo.id);
         if (!fresh) {
@@ -153,9 +153,16 @@ export async function applyLiveStats(baseline: Repository[]): Promise<Repository
         }
         const merged = mergeLive(repo, fresh);
         const differs = LIVE_MERGE_KEYS.some(key => merged[key] !== repo[key]);
-        kept.push(differs ? merged : repo);
-        if (differs) changed = true;
+        if (!differs) {
+            pending.push(Promise.resolve(repo));
+            continue;
+        }
+        changed = true;
+        pending.push(merged.language !== repo.language
+            ? withRealLanguages(merged, merged.name)
+            : Promise.resolve(merged));
     }
+    const kept = await Promise.all(pending);
 
     const known = new Set(baseline.map(repo => repo.id));
     const added = await Promise.all(

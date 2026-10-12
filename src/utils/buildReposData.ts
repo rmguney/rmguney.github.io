@@ -191,20 +191,16 @@ const calculateCodeBytes = (languages: RepoLanguages): number =>
     Object.values(languages).reduce((sum, bytes) => sum + bytes, 0);
 
 const calculateImportance = (repo: Repository): number => {
+    const ownerWatchingBonus = repo.ownerIsWatching ? 50 : 0;
     const deploymentBonus = repo.hasDeployments ? 3 : 0;
     const packageBonus = repo.hasPackages ? 3 : 0;
 
-    const baseImportance = (repo.stars * 4) +
+    return (repo.stars * 4) +
         (repo.watchers * 3) +
         (repo.forks * 2) +
-        (repo.size * 0.00001) +
         deploymentBonus +
-        packageBonus;
-
-    const ownerWatchingBias = repo.ownerIsWatching ? baseImportance * 10 : 0;
-    const totalImportance = baseImportance + ownerWatchingBias;
-
-    return repo.isPinned ? totalImportance * 1e21 : totalImportance;
+        packageBonus +
+        ownerWatchingBonus;
 };
 
 async function main(): Promise<void> {
@@ -260,7 +256,10 @@ async function main(): Promise<void> {
         return repo;
     }));
 
-    repos.sort((a, b) => b.importanceFactor - a.importanceFactor);
+    repos.sort((a, b) =>
+        Number(b.isPinned) - Number(a.isPinned) ||
+        b.importanceFactor - a.importanceFactor ||
+        b.size - a.size);
 
     await mkdir(OUT_DIR, { recursive: true });
     await writeFile(path.join(OUT_DIR, 'repos.json'), JSON.stringify(repos), 'utf8');
